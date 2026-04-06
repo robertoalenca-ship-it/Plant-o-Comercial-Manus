@@ -17,13 +17,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
   CheckCircle2,
+  Moon,
   Plus,
   Settings as SettingsIcon,
   Stethoscope,
+  Sun,
   Trash2,
   UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const MONTH_NAMES = [
   "Janeiro",
@@ -64,6 +67,7 @@ export default function Settings() {
 
   const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const { user } = useAuth();
+  const { theme, toggleTheme, switchable } = useTheme();
 
   const { data: holidays, refetch: refetchHolidays } = trpc.holidays.list.useQuery();
   const { data: schedule, refetch: refetchSchedule } =
@@ -184,7 +188,7 @@ export default function Settings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-blue-500" />
+            <Stethoscope className="h-4 w-4 text-emerald-500" />
             Escalas medicas
           </CardTitle>
         </CardHeader>
@@ -325,7 +329,7 @@ export default function Settings() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <UserCog className="h-4 w-4 text-violet-600" />
+              <UserCog className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               Usuarios do sistema
             </CardTitle>
           </CardHeader>
@@ -559,7 +563,7 @@ export default function Settings() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               Status da escala - {MONTH_NAMES[month - 1]} {year}
             </CardTitle>
           </CardHeader>
@@ -605,7 +609,7 @@ export default function Settings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-red-500" />
+            <Calendar className="h-4 w-4 text-rose-500" />
             Feriados ({holidays?.length ?? 0})
           </CardTitle>
         </CardHeader>
@@ -724,6 +728,54 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {switchable && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              {theme === "light" ? (
+                <Sun className="h-4 w-4 text-amber-500" />
+              ) : (
+                <Moon className="h-4 w-4 text-indigo-400" />
+              )}
+              Aparencia
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-medium">Modo de cor</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Alterne entre o tema claro e escuro conforme sua preferencia.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {theme === "light" ? "Modo claro" : "Modo escuro"}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleTheme}
+                  className="gap-2"
+                >
+                  {theme === "light" ? (
+                    <>
+                      <Moon className="h-4 w-4" />
+                      Ativar modo escuro
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="h-4 w-4" />
+                      Ativar modo claro
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-2">

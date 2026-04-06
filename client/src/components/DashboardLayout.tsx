@@ -49,6 +49,7 @@ import {
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import AppBrand from "./AppBrand";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -458,7 +459,10 @@ function DashboardLayoutContent({
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="p-3 space-y-2">
+            <div className="flex items-center justify-between px-1 group-data-[collapsible=icon]:justify-center">
+              <ThemeToggle variant="ghost" size="icon" className="h-8 w-8" />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="group-data-[collapsible=icon]:justify-center flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -517,7 +521,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="app-main-content flex-1 overflow-auto p-4 md:p-6 lg:p-8 rounded-tl-3xl border-t border-l border-border bg-card shadow-sm m-1 mr-0 mb-0 md:m-2 md:mr-0 md:mb-0">
+        <main className="app-main-content flex-1 overflow-auto p-4 md:p-6 lg:p-8 rounded-tl-3xl border-t border-l border-border bg-card shadow-sm m-1 mr-0 mb-0 md:m-2 md:mr-0 md:mb-0 transition-colors duration-200 dark:bg-card/50 dark:border-border/50">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>

@@ -200,8 +200,8 @@ export default function Dashboard() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 p-2">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
+              <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
+                <CalendarDays className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{totalEntries}</p>
@@ -214,8 +214,8 @@ export default function Dashboard() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-100 p-2">
-                <Users className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-teal-100 p-2 dark:bg-teal-950">
+                <Users className="h-5 w-5 text-teal-600 dark:text-teal-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeDoctors}</p>
@@ -232,13 +232,13 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <div
                 className={`rounded-lg p-2 ${
-                  conflicts > 0 ? "bg-red-100" : "bg-green-100"
+                  conflicts > 0 ? "bg-red-100 dark:bg-red-950" : "bg-emerald-100 dark:bg-emerald-950"
                 }`}
               >
                 {conflicts > 0 ? (
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 ) : (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 )}
               </div>
               <div>
@@ -252,8 +252,8 @@ export default function Dashboard() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div className="rounded-lg bg-cyan-100 p-2 dark:bg-cyan-950">
+                <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
@@ -342,34 +342,34 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Button
               variant="outline"
-              className="h-auto flex-col gap-1 py-3"
+              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
               onClick={() => setLocation("/calendar")}
             >
-              <CalendarDays className="h-5 w-5 text-blue-500" />
+              <CalendarDays className="h-5 w-5 text-emerald-500" />
               <span className="text-xs">Ver Calendario</span>
             </Button>
             <Button
               variant="outline"
-              className="h-auto flex-col gap-1 py-3"
+              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
               onClick={() => setLocation("/doctors")}
             >
-              <Users className="h-5 w-5 text-green-500" />
+              <Users className="h-5 w-5 text-teal-500" />
               <span className="text-xs">{professionalPlural}</span>
             </Button>
             <Button
               variant="outline"
-              className="h-auto flex-col gap-1 py-3"
+              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
               onClick={() => setLocation("/weekly-rules")}
             >
-              <Clock className="h-5 w-5 text-orange-500" />
+              <Clock className="h-5 w-5 text-cyan-500" />
               <span className="text-xs">Regras Semanais</span>
             </Button>
             <Button
               variant="outline"
-              className="h-auto flex-col gap-1 py-3"
+              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
               onClick={() => setLocation("/reports")}
             >
-              <BarChart3 className="h-5 w-5 text-purple-500" />
+              <BarChart3 className="h-5 w-5 text-emerald-600" />
               <span className="text-xs">Relatorios</span>
             </Button>
           </div>

@@ -14,8 +14,8 @@ export default function AppBrand({
   return (
     <div className={cn("app-brand flex items-center gap-3", compact && "app-brand-compact gap-2", className)}>
       <div className={cn(
-        "app-brand-plaque text-primary-foreground flex items-center justify-center rounded-xl",
-        "bg-gradient-to-br from-primary to-blue-600 shadow-[0_0_15px_rgba(0,229,255,0.4)]",
+        "app-brand-plaque text-primary-foreground flex items-center justify-center rounded-xl transition-all duration-200",
+        "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25 dark:from-emerald-400 dark:to-emerald-500 dark:shadow-emerald-400/20",
         compact ? "h-8 w-8 shrink-0" : "h-12 w-12 shrink-0 p-2"
       )}>
         <svg
