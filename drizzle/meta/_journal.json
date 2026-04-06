@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1774648581796,
+      "tag": "0000_narrow_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1774648725183,
+      "tag": "0001_unusual_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774726673954,
+      "tag": "0002_chief_black_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1774796400000,
+      "tag": "0003_local_user_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1774832555275,
+      "tag": "0004_lethal_phil_sheldon",
+      "breakpoints": true
+    }
+  ]
+}

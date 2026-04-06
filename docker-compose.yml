@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-escala_medica}
+      MYSQL_USER: ${MYSQL_USER:-escala_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-escala_password}
+      JWT_SECRET: ${JWT_SECRET:-troque-esta-chave-super-forte}
+      LOCAL_LOGIN_USERNAME: ${LOCAL_LOGIN_USERNAME:-admin}
+      LOCAL_LOGIN_PASSWORD: ${LOCAL_LOGIN_PASSWORD:-sonhen}
+      LOCAL_SESSION_APP_ID: ${LOCAL_SESSION_APP_ID:-local-auth}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-}
+      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-}
+      VITE_APP_ID: ${VITE_APP_ID:-}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
+      VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
+      VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
+      DB_WAIT_TIMEOUT_MS: ${DB_WAIT_TIMEOUT_MS:-120000}
+      DB_WAIT_INTERVAL_MS: ${DB_WAIT_INTERVAL_MS:-3000}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-escala_medica}
+      MYSQL_USER: ${MYSQL_USER:-escala_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-escala_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-escala_root_password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mysql_data:
