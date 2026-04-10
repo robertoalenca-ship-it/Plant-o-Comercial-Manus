@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScheduleProfileProvider } from "./contexts/ScheduleProfileContext";
@@ -16,6 +16,16 @@ import Exceptions from "./pages/Exceptions";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
+import InviteAccept from "./pages/InviteAccept";
+import Home from "./pages/Home";
+import UpgradePlan from "./pages/UpgradePlan";
+import AdminPanel from "./pages/AdminPanel";
+import {
+  APP_HOME_PATH,
+  LEGACY_APP_ROUTE_REDIRECTS,
+  appPath,
+  isAppRoute,
+} from "./lib/appRoutes";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -51,28 +61,64 @@ function OptionalAnalytics() {
   return null;
 }
 
-function Router() {
+function AppShell() {
   return (
-    <Switch>
-      <Route path="/onboarding" component={Onboarding} />
-      <Route>
-        <DashboardLayout>
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/calendar" component={Calendar} />
-            <Route path="/doctors" component={Doctors} />
-            <Route path="/weekly-rules" component={WeeklyRules} />
-            <Route path="/weekend-rules" component={WeekendRules} />
-            <Route path="/exceptions" component={Exceptions} />
-            <Route path="/reports" component={Reports} />
-            <Route path="/settings" component={Settings} />
-            <Route path="/404" component={NotFound} />
-            <Route component={NotFound} />
-          </Switch>
-        </DashboardLayout>
-      </Route>
-    </Switch>
+    <DashboardLayout>
+      <Switch>
+        <Route path={APP_HOME_PATH} component={Dashboard} />
+        <Route path={appPath("/calendar")} component={Calendar} />
+        <Route path={appPath("/doctors")} component={Doctors} />
+        <Route path={appPath("/weekly-rules")} component={WeeklyRules} />
+        <Route path={appPath("/weekend-rules")} component={WeekendRules} />
+        <Route path={appPath("/exceptions")} component={Exceptions} />
+        <Route path={appPath("/reports")} component={Reports} />
+        <Route path={appPath("/settings")} component={Settings} />
+        <Route path={appPath("/upgrade")} component={UpgradePlan} />
+        <Route path={appPath("/admin")} component={AdminPanel} />
+        <Route path={appPath("/404")} component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
   );
+}
+
+function LegacyRouteRedirect({ to }: { to: string }) {
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (location !== to) {
+      setLocation(to);
+    }
+  }, [location, setLocation, to]);
+
+  return null;
+}
+
+function Router() {
+  const [location] = useLocation();
+  const legacyTarget = LEGACY_APP_ROUTE_REDIRECTS[location];
+
+  if (legacyTarget) {
+    return <LegacyRouteRedirect to={legacyTarget} />;
+  }
+
+  if (location === "/") {
+    return <Home />;
+  }
+
+  if (location === appPath("/onboarding")) {
+    return <Onboarding />;
+  }
+
+  if (location === "/invite-accept") {
+    return <InviteAccept />;
+  }
+
+  if (isAppRoute(location)) {
+    return <AppShell />;
+  }
+
+  return <NotFound />;
 }
 
 function App() {

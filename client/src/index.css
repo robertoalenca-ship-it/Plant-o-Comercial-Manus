@@ -43,76 +43,89 @@
 }
 
 :root {
-  /* Emerald Premium - Light Mode */
-  --primary: #059669; /* Emerald 600 */
+  /* Premium Teal & Slate - Light Mode */
+  --primary: #0d9488; /* Teal 600 */
   --primary-foreground: #ffffff;
-  --sidebar-primary: #059669;
+  --sidebar-primary: #0d9488;
   --sidebar-primary-foreground: #ffffff;
-  --chart-1: #10b981; /* Emerald 500 */
-  --chart-2: #34d399; /* Emerald 400 */
-  --chart-3: #6ee7b7; /* Emerald 300 */
-  --chart-4: #a7f3d0; /* Emerald 200 */
-  --chart-5: #d1fae5; /* Emerald 100 */
-  --radius: 0.625rem;
-  --background: #fafafa;
-  --foreground: #0a0a0a;
+  --chart-1: #0d9488;
+  --chart-2: #334155; /* Slate 700 */
+  --chart-3: #14b8a6; /* Teal 500 */
+  --chart-4: #475569; /* Slate 600 */
+  --chart-5: #94a3b8; /* Slate 400 */
+  
+  --radius: 0.5rem;
+  --background: #f8fafc; /* Slate 50 */
+  --foreground: #0f172a; /* Slate 900 */
+  
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
+  --card-foreground: #0f172a;
+  
   --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #ecfdf5; /* Emerald 50 */
-  --accent-foreground: #047857;
-  --destructive: #dc2626;
+  --popover-foreground: #0f172a;
+  
+  --secondary: #f1f5f9; /* Slate 100 */
+  --secondary-foreground: #1e293b; /* Slate 800 */
+  
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b; /* Slate 500 */
+  
+  --accent: #f0fdfa; /* Teal 50 */
+  --accent-foreground: #0f766e; /* Teal 700 */
+  
+  --destructive: #be123c; /* Rose 700 */
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #059669;
+  
+  --border: #e2e8f0; /* Slate 200 */
+  --input: #e2e8f0;
+  --ring: #0d9488;
+  
   --sidebar: #ffffff;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-accent: #ecfdf5;
-  --sidebar-accent-foreground: #059669;
-  --sidebar-border: #e4e4e7;
-  --sidebar-ring: #059669;
+  --sidebar-foreground: #334155;
+  --sidebar-accent: #f0fdfa;
+  --sidebar-accent-foreground: #0d9488;
+  --sidebar-border: #f1f5f9;
+  --sidebar-ring: #0d9488;
 }
 
 .dark {
-  /* Emerald Premium - Dark Mode (Vercel-inspired) */
-  --primary: #34d399; /* Emerald 400 */
-  --primary-foreground: #022c22;
-  --sidebar-primary: #34d399;
-  --sidebar-primary-foreground: #022c22;
-  --chart-1: #34d399;
-  --chart-2: #10b981;
-  --chart-3: #059669;
-  --chart-4: #047857;
-  --chart-5: #065f46;
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #171717;
-  --card-foreground: #fafafa;
-  --popover: #171717;
-  --popover-foreground: #fafafa;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a1a1aa;
-  --accent: #052e16; /* Emerald 950 */
-  --accent-foreground: #34d399;
-  --destructive: #7f1d1d;
-  --destructive-foreground: #fef2f2;
-  --border: #262626;
-  --input: #262626;
-  --ring: #34d399;
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #fafafa;
-  --sidebar-accent: #052e16;
-  --sidebar-accent-foreground: #34d399;
-  --sidebar-border: #262626;
-  --sidebar-ring: #34d399;
+  /* Premium Teal & Slate - Dark Mode */
+  --primary: #2dd4bf; /* Teal 400 */
+  --primary-foreground: #042f2e;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #042f2e;
+  
+  --background: #020617; /* Slate 950 */
+  --foreground: #f8fafc; /* Slate 50 */
+  
+  --card: #0f172a; /* Slate 900 */
+  --card-foreground: #f8fafc;
+  
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  
+  --secondary: #1e293b; /* Slate 800 */
+  --secondary-foreground: #f8fafc;
+  
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8; /* Slate 400 */
+  
+  --accent: #042f2e; /* Teal 950 */
+  --accent-foreground: #2dd4bf;
+  
+  --destructive: #9f1239;
+  --destructive-foreground: #f8fafc;
+  
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #2dd4bf;
+  
+  --sidebar: #020617;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-accent: #042f2e;
+  --sidebar-accent-foreground: #2dd4bf;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #2dd4bf;
 }
 
 @layer base {
@@ -123,147 +136,54 @@
     @apply bg-background text-foreground antialiased;
     font-family: "Inter", system-ui, -apple-system, sans-serif;
     min-height: 100vh;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-  
-  /* Smooth theme transitions */
-  html {
-    color-scheme: light;
-  }
-  
-  html.dark {
-    color-scheme: dark;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-/* Shift color classes - Emerald theme harmonized */
-.shift-manha { background-color: #d1fae5; color: #065f46; border-color: #6ee7b7; }
-.shift-tarde { background-color: #dbeafe; color: #1e40af; border-color: #93c5fd; }
-.shift-noite { background-color: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
-.shift-feriado { background-color: #fef3c7; color: #92400e; border-color: #fcd34d; }
+/* Glassmorphism Classes */
+.glass {
+  @apply bg-white/70 backdrop-blur-md border-white/20;
+}
+.dark .glass {
+  @apply bg-slate-900/70 backdrop-blur-md border-slate-800/20;
+}
+
+/* Shift color classes - Sophisticated Healthcare Palette */
+.shift-manha { background-color: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
+.shift-tarde { background-color: #f8fafc; color: #334155; border-color: #e2e8f0; }
+.shift-noite { background-color: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+.shift-feriado { background-color: #fffbeb; color: #92400e; border-color: #fef3c7; }
 
 /* Dark mode shift colors */
-.dark .shift-manha { background-color: #052e16; color: #6ee7b7; border-color: #065f46; }
-.dark .shift-tarde { background-color: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
-.dark .shift-noite { background-color: #312e81; color: #a5b4fc; border-color: #3730a3; }
-.dark .shift-feriado { background-color: #451a03; color: #fcd34d; border-color: #92400e; }
+.dark .shift-manha { background-color: #042f2e; color: #5eead4; border-color: #134e4a; }
+.dark .shift-tarde { background-color: #0f172a; color: #cbd5e1; border-color: #1e293b; }
+.dark .shift-noite { background-color: #1e3a8a; color: #bfdbfe; border-color: #1e40af; }
+.dark .shift-feriado { background-color: #451a03; color: #fcd34d; border-color: #78350f; }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* Scrollbar - Premium Minimalist */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #52525b; }
-
-@layer base {
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
-}
+.dark ::-webkit-scrollbar-thumb { background: #334155; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
-  }
-
-  .flex {
-    min-height: 0;
-    min-width: 0;
-  }
-
   .app-hero-chip {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    min-height: 5.8rem;
-    padding: 1rem;
-    box-shadow: 0 4px 12px -2px rgba(0,0,0,0.05);
+    @apply bg-card border border-border rounded-xl flex flex-col gap-1 min-h-[5.5rem] p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20;
   }
 
   .app-hero-chip strong {
-    color: var(--foreground);
-    font-size: 1.05rem;
-    font-weight: 700;
+    @apply text-foreground text-lg font-bold tracking-tight;
   }
 
   .app-hero-chip-label {
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    @apply text-muted-foreground text-[0.65rem] font-bold uppercase tracking-wider;
   }
 
-  /* Login Emerald Theme */
-  .app-login-screen {
-    background:
-      radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 50%),
-      radial-gradient(circle at bottom left, rgba(5, 150, 105, 0.08), transparent 50%),
-      #fafafa;
-  }
-
-  .dark .app-login-screen {
-    background:
-      radial-gradient(circle at top right, rgba(52, 211, 153, 0.08), transparent 50%),
-      radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 50%),
-      #0a0a0a;
-  }
-
-  .app-showcase-card {
-    background: linear-gradient(135deg, #059669 0%, #047857 100%);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.08), 0 20px 40px rgba(5, 150, 105, 0.2);
-  }
-
-  .dark .app-showcase-card {
-    background: linear-gradient(135deg, #052e16 0%, #064e3b 100%);
-    border: 1px solid rgba(52, 211, 153, 0.2);
-    box-shadow: inset 0 0 40px rgba(52, 211, 153, 0.05), 0 20px 40px rgba(0, 0, 0, 0.4);
-  }
-
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
+  /* Sophisticated Gradients */
+  .bg-premium-gradient {
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   }
 }

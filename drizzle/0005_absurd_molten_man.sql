@@ -1,0 +1,2 @@
+ALTER TABLE `doctors` ADD `specialty` varchar(128);--> statement-breakpoint
+ALTER TABLE `schedule_entries` ADD `confirmationStatus` enum('pending','confirmed','adjustment_requested') DEFAULT 'pending' NOT NULL;

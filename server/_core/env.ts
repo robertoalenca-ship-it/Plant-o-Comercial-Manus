@@ -7,6 +7,10 @@ export const ENV = {
   localLoginUsername: process.env.LOCAL_LOGIN_USERNAME ?? "admin",
   localLoginPassword: process.env.LOCAL_LOGIN_PASSWORD ?? "sonhen",
   localSessionAppId: process.env.LOCAL_SESSION_APP_ID ?? "local-auth",
+  enableLegacyOfflineSeed:
+    process.env.ENABLE_LEGACY_OFFLINE_SAMPLE === "true" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true",
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",

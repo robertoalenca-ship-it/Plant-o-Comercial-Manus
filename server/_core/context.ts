@@ -27,9 +27,15 @@ function createLocalDevUser(): User {
     email: "admin@local",
     loginMethod: "password",
     role: "admin",
+    isEmailVerified: true,
     createdAt: now,
     updatedAt: now,
     lastSignedIn: now,
+    maxProfiles: 999,
+    isPaid: true,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    subscriptionStatus: "active",
   };
 }
 
@@ -94,9 +100,15 @@ async function getLocalCredentialUser(
     email: managedUser.email,
     loginMethod: managedUser.loginMethod,
     role: managedUser.role,
+    isEmailVerified: managedUser.isEmailVerified,
     createdAt: managedUser.createdAt,
     updatedAt: managedUser.updatedAt,
     lastSignedIn: managedUser.lastSignedIn,
+    maxProfiles: managedUser.maxProfiles,
+    isPaid: managedUser.isPaid,
+    stripeCustomerId: managedUser.stripeCustomerId,
+    stripeSubscriptionId: managedUser.stripeSubscriptionId,
+    subscriptionStatus: managedUser.subscriptionStatus,
   };
 }
 

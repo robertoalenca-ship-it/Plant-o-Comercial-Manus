@@ -2,12 +2,12 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 const LOCAL_OPEN_ID_PREFIX = "local:";
 
-export function normalizeLocalUsername(username: string) {
-  return username.trim().toLowerCase();
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
 
-export function buildLocalOpenId(username: string) {
-  return `${LOCAL_OPEN_ID_PREFIX}${normalizeLocalUsername(username)}`;
+export function buildLocalOpenId(email: string) {
+  return `${LOCAL_OPEN_ID_PREFIX}${normalizeEmail(email)}`;
 }
 
 export function isManagedLocalOpenId(openId: string) {

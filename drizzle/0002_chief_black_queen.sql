@@ -9,7 +9,7 @@ CREATE TABLE `schedule_profiles` (
 );
 --> statement-breakpoint
 INSERT INTO `schedule_profiles` (`name`, `description`, `active`)
-VALUES ('Ortopedia', 'Escala principal do hospital', true);
+VALUES ('Equipe Padrão', 'Perfil base do sistema', true);
 --> statement-breakpoint
 ALTER TABLE `audit_logs` ADD `profileId` int NULL;
 --> statement-breakpoint

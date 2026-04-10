@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppBrand from "@/components/AppBrand";
+import TemporalTimeline from "@/components/TemporalTimeline";
+import { appPath } from "@/lib/appRoutes";
 import { useActiveProfilePresentation } from "@/lib/profilePresentation";
 import {
   ORTHOPEDICS_PRELOADED_MONTH,
@@ -22,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const MONTH_NAMES = [
   "Janeiro",
@@ -112,11 +115,33 @@ export default function Dashboard() {
       (conflict) => conflict.type === "missing_coverage"
     ).length ?? 0;
 
+  // Process today's entries for the timeline
+  const todayEntries = useMemo(() => {
+    if (!scheduleQuery.data?.entries || !doctorsQuery.data) return [];
+    
+    // For demo/dev purposes, if we are in April 2026 (preloaded), 
+    // we use April 1st as "today" if our real date isn't in April.
+    const refDate = (year === 2026 && month === 4) ? "2026-04-01" : now.toISOString().split('T')[0];
+    
+    return scheduleQuery.data.entries
+      .filter(entry => entry.entryDate.toString().startsWith(refDate))
+      .map(entry => {
+        const doctor = doctorsQuery.data.find(d => d.id === entry.doctorId);
+        return {
+          doctorId: entry.doctorId,
+          doctorName: doctor?.shortName ?? "Desconhecido",
+          doctorColor: doctor?.cor ?? "#334155",
+          shiftType: entry.shiftType as any,
+          confirmationStatus: (entry as any).confirmationStatus ?? "confirmed", // Default to confirmed for existing
+        };
+      });
+  }, [scheduleQuery.data, doctorsQuery.data, year, month]);
+
   const statusColors: Record<string, string> = {
-    draft: "bg-yellow-100 text-yellow-800",
-    preliminary: "bg-blue-100 text-blue-800",
-    approved: "bg-green-100 text-green-800",
-    locked: "bg-gray-100 text-gray-800",
+    draft: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+    preliminary: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400",
+    approved: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400",
+    locked: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400",
   };
 
   const statusLabels: Record<string, string> = {
@@ -127,27 +152,27 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {MONTH_NAMES[month - 1]} {year} - Visao geral da {monthlyScheduleLabel}
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground font-medium">
+            {MONTH_NAMES[month - 1]} {year} • <span className="text-primary">{activeProfileName}</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             onClick={() => generateMutation.mutate({ year, month })}
             disabled={generateMutation.isPending}
-            size="sm"
+            className="bg-primary hover:bg-primary/90 shadow-sm"
           >
-            <Zap className="mr-2 h-4 w-4" />
+            <Zap className="mr-2 h-4 w-4 fill-current" />
             {generateMutation.isPending ? "Gerando..." : "Gerar Escala"}
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => setLocation("/calendar")}
+            onClick={() => setLocation(appPath("/calendar"))}
+            className="glass shadow-sm"
           >
             <CalendarDays className="mr-2 h-4 w-4" />
             Ver Calendario
@@ -155,41 +180,40 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Card className="app-hero-card overflow-hidden border-0">
-        <CardContent className="grid gap-6 p-6 md:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-5">
-            <AppBrand />
-            <div className="space-y-2 mt-4">
-              <h2 className="text-3xl font-bold leading-tight text-foreground md:text-4xl tracking-tight">
-                Escala de plantões inteligente e automatizada.
+      <Card className="relative overflow-hidden border-0 shadow-lg bg-premium-gradient text-white">
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <TrendingUp size={240} />
+        </div>
+        <CardContent className="grid gap-8 p-8 md:grid-cols-[1fr_auto]">
+          <div className="space-y-6 relative z-10">
+            <AppBrand className="text-white" hideSubtitle />
+            <div className="space-y-3">
+              <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl text-white">
+                Gestão de escalas de alto desempenho.
               </h2>
-              <p className="max-w-2xl text-base leading-6 text-muted-foreground mt-2">
-                Acompanhe as restrições da sua equipe, avalie a carga de trabalho mensal, previna furos de cobertura e tenha o relatório consolidado pronto para faturamento.
+              <p className="max-w-2xl text-lg leading-relaxed text-teal-50/80">
+                Otimize a cobertura hospitalar, gerencie restrições e garanta a equidade na carga de trabalho da sua equipe.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 mt-6 lg:mt-0">
-            <div className="app-hero-chip">
-              <span className="app-hero-chip-label">Escala ativa</span>
-              <strong>{activeProfileName}</strong>
+          <div className="grid gap-4 sm:grid-cols-2 self-center relative z-10">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col gap-1 min-w-[140px] shadow-sm">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-100/70">Mês Ativo</span>
+              <strong className="text-lg font-bold">{MONTH_NAMES[month - 1]} {year}</strong>
             </div>
-            <div className="app-hero-chip">
-              <span className="app-hero-chip-label">Mes em foco</span>
-              <strong>
-                {MONTH_NAMES[month - 1]} {year}
-              </strong>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col gap-1 min-w-[140px] shadow-sm">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-100/70">Ocupação</span>
+              <strong className="text-lg font-bold">{totalEntries} Plantões</strong>
             </div>
-            <div className="app-hero-chip">
-              <span className="app-hero-chip-label">Cobertura</span>
-              <strong>{totalEntries} plantoes</strong>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col gap-1 min-w-[140px] shadow-sm">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-100/70">Eficiência</span>
+              <strong className="text-lg font-bold">{scheduleQuery.data?.balanceScore ?? 0}/100</strong>
             </div>
-            <div className="app-hero-chip">
-              <span className="app-hero-chip-label">Status</span>
-              <strong>
-                {scheduleQuery.data
-                  ? statusLabels[scheduleQuery.data.status]
-                  : "Aguardando geracao"}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col gap-1 min-w-[140px] shadow-sm">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-100/70">Status</span>
+              <strong className="text-lg font-bold">
+                {scheduleQuery.data ? statusLabels[scheduleQuery.data.status] : "Pendente"}
               </strong>
             </div>
           </div>
@@ -197,206 +221,147 @@ export default function Dashboard() {
       </Card>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
-                <CalendarDays className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex flex-col gap-2">
+              <div className="rounded-full bg-teal-100 w-10 h-10 flex items-center justify-center dark:bg-teal-900/30">
+                <CalendarDays className="h-5 w-5 text-teal-600 dark:text-teal-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">{totalEntries}</p>
-                <p className="text-xs text-muted-foreground">Plantoes escalados</p>
-              </div>
+              <p className="text-3xl font-extrabold tracking-tight mt-1">{totalEntries}</p>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Total de Plantões</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-teal-100 p-2 dark:bg-teal-950">
-                <Users className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+            <div className="flex flex-col gap-2">
+              <div className="rounded-full bg-blue-100 w-10 h-10 flex items-center justify-center dark:bg-blue-900/30">
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">{activeDoctors}</p>
-                <p className="text-xs text-muted-foreground">
-                  {professionalPlural} ativos
-                </p>
-              </div>
+              <p className="text-3xl font-extrabold tracking-tight mt-1">{activeDoctors}</p>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{professionalPlural}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2">
               <div
-                className={`rounded-lg p-2 ${
-                  conflicts > 0 ? "bg-red-100 dark:bg-red-950" : "bg-emerald-100 dark:bg-emerald-950"
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${
+                  conflicts > 0 ? "bg-rose-100 dark:bg-rose-900/30" : "bg-teal-100 dark:bg-teal-900/30"
                 }`}
               >
                 {conflicts > 0 ? (
-                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
                 ) : (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 )}
               </div>
-              <div>
-                <p className="text-2xl font-bold">{conflicts}</p>
-                <p className="text-xs text-muted-foreground">Conflitos</p>
-              </div>
+              <p className={cn("text-3xl font-extrabold tracking-tight mt-1", conflicts > 0 && "text-rose-600")}>{conflicts}</p>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Conflitos de Escala</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-cyan-100 p-2 dark:bg-cyan-950">
-                <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+            <div className="flex flex-col gap-2">
+              <div className="rounded-full bg-amber-100 w-10 h-10 flex items-center justify-center dark:bg-amber-900/30">
+                <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {scheduleQuery.data?.balanceScore ?? "-"}
-                </p>
-                <p className="text-xs text-muted-foreground">Score equilibrio</p>
-              </div>
+              <p className="text-3xl font-extrabold tracking-tight mt-1">
+                {scheduleQuery.data?.balanceScore ?? "0"}%
+              </p>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Equidade Térmica</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {scheduleQuery.data && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Status da Escala</CardTitle>
-              <Badge className={statusColors[scheduleQuery.data.status]}>
-                {statusLabels[scheduleQuery.data.status]}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                Gerada em:{" "}
-                {scheduleQuery.data.generatedAt
-                  ? new Date(scheduleQuery.data.generatedAt).toLocaleString(
-                      "pt-BR"
-                    )
-                  : "-"}
-              </span>
-              {uncoveredShifts > 0 && (
-                <span className="flex items-center gap-1 text-red-600">
-                  <AlertTriangle className="h-4 w-4" />
-                  {uncoveredShifts} cobertura(s) descoberta(s)
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <TemporalTimeline 
+          entries={todayEntries} 
+          dateLabel={year === 2026 && month === 4 ? "Visão Temporal: 01 de Abril de 2026" : `Visão Temporal: ${now.toLocaleDateString('pt-BR')}`}
+        />
 
-      {statsQuery.data && statsQuery.data.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BarChart3 className="h-4 w-4" />
-              Carga por {professionalSingular} - {MONTH_NAMES[month - 1]}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {statsQuery.data
-                .filter((item) => item.totalShifts > 0)
-                .sort((left, right) => right.totalShifts - left.totalShifts)
-                .slice(0, 12)
-                .map((item) => (
-                  <div key={item.doctorId} className="flex items-center gap-3">
-                    <div
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: item.doctorColor ?? "#3B82F6" }}
-                    />
-                    <span className="w-28 truncate text-sm font-medium">
-                      {item.doctorName}
-                    </span>
-                    <div className="flex-1">
-                      <Progress value={(item.totalShifts / 25) * 100} className="h-2" />
-                    </div>
-                    <div className="shrink-0 text-xs text-muted-foreground">
-                      {item.totalShifts} plant.
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <div className="space-y-6">
+          {statsQuery.data && statsQuery.data.length > 0 && (
+            <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Ranking de Carga Horária
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-5">
+                  {statsQuery.data
+                    .filter((item) => item.totalShifts > 0)
+                    .sort((left, right) => right.totalShifts - left.totalShifts)
+                    .slice(0, 8)
+                    .map((item) => (
+                      <div key={item.doctorId} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="truncate">{item.doctorName}</span>
+                          <span className="text-muted-foreground">{item.totalShifts} Plantões</span>
+                        </div>
+                        <Progress 
+                          value={(item.totalShifts / 25) * 100} 
+                          className="h-1.5"
+                          style={{ "--progress-foreground": item.doctorColor } as any}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Acoes Rapidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
-              onClick={() => setLocation("/calendar")}
-            >
-              <CalendarDays className="h-5 w-5 text-emerald-500" />
-              <span className="text-xs">Ver Calendario</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
-              onClick={() => setLocation("/doctors")}
-            >
-              <Users className="h-5 w-5 text-teal-500" />
-              <span className="text-xs">{professionalPlural}</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
-              onClick={() => setLocation("/weekly-rules")}
-            >
-              <Clock className="h-5 w-5 text-cyan-500" />
-              <span className="text-xs">Regras Semanais</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-1 py-3 hover:border-primary/50"
-              onClick={() => setLocation("/reports")}
-            >
-              <BarChart3 className="h-5 w-5 text-emerald-600" />
-              <span className="text-xs">Relatorios</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {!scheduleQuery.isLoading && !scheduleQuery.data && (
-        <Card className="border-dashed">
-          <CardContent className="pt-6 text-center">
-            <CalendarDays className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
-            <p className="font-medium">
-              Nenhuma escala gerada para {MONTH_NAMES[month - 1]}
-            </p>
-            <p className="mb-4 mt-1 text-sm text-muted-foreground">
-              Clique em "Gerar Escala" para montar a escala automaticamente com
-              base nas regras configuradas.
-            </p>
-            <Button
-              onClick={() => generateMutation.mutate({ year, month })}
-              disabled={generateMutation.isPending}
-            >
-              <Zap className="mr-2 h-4 w-4" />
-              Gerar Escala Automatica
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          <Card className="bg-card/40 backdrop-blur-sm border-slate-200/60 dark:border-slate-800/60">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Ações Rápidas</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/calendar"))}
+                >
+                  <CalendarDays className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Escala Mensal</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/doctors"))}
+                >
+                  <Users className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">{professionalPlural}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/weekly-rules"))}
+                >
+                  <Clock className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Restrições</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/reports"))}
+                >
+                  <BarChart3 className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Faturamento</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

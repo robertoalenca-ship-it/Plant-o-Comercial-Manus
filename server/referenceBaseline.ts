@@ -64,6 +64,12 @@ type SourceModule = {
 
 type DoctorRecord = Awaited<ReturnType<typeof getAllDoctors>>[number];
 
+type ResolveImportedDoctorLabelsResult = {
+  createdDoctors: number;
+  resolvedDoctorIds: Map<string, number>;
+  unresolvedLabels: string[];
+};
+
 function normalizeName(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
@@ -73,6 +79,29 @@ function normalizeName(value: unknown) {
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase();
+}
+
+function normalizeImportedDoctorLabel(value: unknown) {
+  return normalizeName(value)
+    .replace(/\b(sus|conv|cov|convenio)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getAliasMatchScore(label: string, aliases: string[]) {
+  const normalizedLabel = normalizeImportedDoctorLabel(label);
+  let score = 0;
+
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeImportedDoctorLabel(alias);
+
+    if (!normalizedAlias) continue;
+    if (normalizedAlias === normalizedLabel) score = Math.max(score, 100);
+    if (normalizedAlias.includes(normalizedLabel)) score = Math.max(score, 45);
+    if (normalizedLabel.includes(normalizedAlias)) score = Math.max(score, 40);
+  }
+
+  return score;
 }
 
 function getDoctorMatchScore(doctor: DoctorRecord, aliases: string[]) {
@@ -93,6 +122,24 @@ function getDoctorMatchScore(doctor: DoctorRecord, aliases: string[]) {
   }
 
   return score;
+}
+
+function findBestDoctorKey(
+  label: string,
+  source: Pick<SourceModule, "doctorCatalog">
+) {
+  const matches = Object.entries(source.doctorCatalog)
+    .map(([doctorKey, catalogEntry]) => ({
+      doctorKey,
+      score: getAliasMatchScore(label, [
+        catalogEntry.displayName,
+        ...(catalogEntry.aliases ?? []),
+      ]),
+    }))
+    .filter(item => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  return matches[0]?.score >= 40 ? matches[0].doctorKey : null;
 }
 
 function getHolidayKey(item: {
@@ -127,7 +174,7 @@ function buildDoctorPayload(
 
   const note = String(
     baseProfile.observacoes ??
-      "Cadastro base importado do material ortopedico de abril/maio 2026."
+      "Cadastro base importado do material de referencia."
   );
 
   return {
@@ -236,6 +283,83 @@ async function resolveDoctorIds(
   }
 
   return resolvedDoctorIds;
+}
+
+export async function resolveImportedDoctorLabels(
+  profileId: number,
+  labels: string[]
+): Promise<ResolveImportedDoctorLabelsResult> {
+  const source = await loadSourceModule();
+  const resolvedDoctorIds = new Map<string, number>();
+  const unresolvedLabels: string[] = [];
+  const uniqueLabels = Array.from(
+    new Set(labels.map(label => String(label ?? "").trim()).filter(Boolean))
+  );
+  let createdDoctors = 0;
+  let doctors = await getAllDoctors(profileId);
+
+  for (const label of uniqueLabels) {
+    const fallbackAliases = Array.from(
+      new Set([label, normalizeImportedDoctorLabel(label)])
+    ).filter(Boolean);
+    const doctorKey = findBestDoctorKey(label, source);
+
+    if (doctorKey) {
+      const catalogEntry = source.doctorCatalog[doctorKey];
+      const aliases = Array.from(
+        new Set([catalogEntry.displayName, ...(catalogEntry.aliases ?? [])])
+      );
+      let matchedDoctor =
+        doctors
+          .map(doctor => ({
+            doctor,
+            score: getDoctorMatchScore(doctor, aliases),
+          }))
+          .filter(item => item.score > 0)
+          .sort((left, right) => right.score - left.score)[0]?.doctor ?? null;
+
+      if (!matchedDoctor) {
+        await createDoctor(buildDoctorPayload(profileId, doctorKey, source));
+        createdDoctors += 1;
+        doctors = await getAllDoctors(profileId);
+        matchedDoctor =
+          doctors
+            .map(doctor => ({
+              doctor,
+              score: getDoctorMatchScore(doctor, aliases),
+            }))
+            .filter(item => item.score > 0)
+            .sort((left, right) => right.score - left.score)[0]?.doctor ?? null;
+      }
+
+      if (matchedDoctor) {
+        resolvedDoctorIds.set(label, matchedDoctor.id);
+        continue;
+      }
+    }
+
+    const fallbackDoctor =
+      doctors
+        .map(doctor => ({
+          doctor,
+          score: getDoctorMatchScore(doctor, fallbackAliases),
+        }))
+        .filter(item => item.score > 0)
+        .sort((left, right) => right.score - left.score)[0] ?? null;
+
+    if (fallbackDoctor && fallbackDoctor.score >= 35) {
+      resolvedDoctorIds.set(label, fallbackDoctor.doctor.id);
+      continue;
+    }
+
+    unresolvedLabels.push(label);
+  }
+
+  return {
+    createdDoctors,
+    resolvedDoctorIds,
+    unresolvedLabels,
+  };
 }
 
 export async function applyOrthopedicsBaseline(

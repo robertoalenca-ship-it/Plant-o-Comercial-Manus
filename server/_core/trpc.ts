@@ -42,7 +42,7 @@ const requireScheduleProfile = t.middleware(async (opts) => {
     });
   }
 
-  if (ctx.user?.id) {
+  if (ctx.user) {
     const hasAccess = await hasProfileAccess(ctx.user.id, ctx.scheduleProfileId);
     if (!hasAccess && ctx.user.role !== "admin") {
       throw new TRPCError({
@@ -98,4 +98,24 @@ export const adminProcedure = t.procedure.use(
       },
     });
   }),
+);
+
+export const staffProcedure = t.procedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || !["staff", "admin"].includes(ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Acesso restrito à equipe interna.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  })
 );

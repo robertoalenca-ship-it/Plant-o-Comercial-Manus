@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-}
+        VITE_APP_ID: ${VITE_APP_ID:-}
+        VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
+        VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
+        VITE_SALES_CONTACT_URL: ${VITE_SALES_CONTACT_URL:-}
     restart: unless-stopped
     depends_on:
       mysql:
@@ -25,6 +31,7 @@ services:
       OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
       VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
       VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
+      VITE_SALES_CONTACT_URL: ${VITE_SALES_CONTACT_URL:-}
       DB_WAIT_TIMEOUT_MS: ${DB_WAIT_TIMEOUT_MS:-120000}
       DB_WAIT_INTERVAL_MS: ${DB_WAIT_INTERVAL_MS:-3000}
     ports:

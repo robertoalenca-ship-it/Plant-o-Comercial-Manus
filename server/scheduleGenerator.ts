@@ -613,7 +613,8 @@ export function generateSchedule(
     shiftType: ShiftType,
     alreadyUsedToday: Set<number>,
     weekOfMonth: number,
-    isEligibleDoctor: (doctor: Doctor) => boolean
+    isEligibleDoctor: (doctor: Doctor) => boolean,
+    fixedOnly = false
   ): Doctor | null {
     const dateStr = toDateStr(day);
     const poolIds = new Set(pool.map((doctor) => doctor.id));
@@ -651,6 +652,8 @@ export function generateSchedule(
         return doctor;
       }
     }
+
+    if (fixedOnly) return null;
 
     if (rotationState.orderedDoctorIds.length === 0) return null;
 
@@ -913,159 +916,186 @@ export function generateSchedule(
     }
   }
 
-  for (const day of days) {
-    if (!isWeekend(day)) continue;
-    const dateStr = toDateStr(day);
-    const weekendBlockKey = getWeekendBlockKey(day) ?? dateStr;
-    const isSaturday = day.getDay() === 6;
-    const weekOfMonth = getWeekOfMonth(day);
-    const usedToday = new Set<number>();
+  // Estrutura:
+  //   SÁBADO: 1 médico SUS 12h (manhã + tarde) + 1 médico Convênio 24h + residentes no SUS
+  //   DOMINGO: 1 médico 24h (cobre SUS + Convênio)
+  // Rodízio automático equilibrado entre elegíveis de cada pool
 
-    if (isSaturday) {
-      // ── SÁBADO: 1 médico SUS 12h (manhã + tarde) ──
-      const needsSaturdayMorningSus = !hasShiftCoverage(entries, dateStr, "manha_sus");
-      const needsSaturdayAfternoonSus = !hasShiftCoverage(entries, dateStr, "tarde_sus");
+  // Executamos em dois passes:
+  // 1. Apenas regras fixas (processando domingos primeiro para permitir look-ahead de conflito no sábado)
+  // 2. Rodízio para completar o que faltou
+  for (const pass of ["fixed", "rotation"]) {
+    const sortedDays = pass === "fixed"
+      ? [...days].filter(isWeekend).sort((a, b) => {
+          const aIsSun = a.getDay() === 0;
+          const bIsSun = b.getDay() === 0;
+          if (aIsSun && !bIsSun) return -1;
+          if (!aIsSun && bIsSun) return 1;
+          return a.getTime() - b.getTime();
+        })
+      : days;
 
-      if (needsSaturdayMorningSus || needsSaturdayAfternoonSus) {
-        const saturdaySusDoctor = pickSequentialWeekendDoctor(
-          saturdaySusRotationState,
-          saturdaySusPool,
+    for (const day of sortedDays) {
+      if (!isWeekend(day)) continue;
+      const dateStr = toDateStr(day);
+      const weekendBlockKey = getWeekendBlockKey(day) ?? dateStr;
+      const isSaturday = day.getDay() === 6;
+      const weekOfMonth = getWeekOfMonth(day);
+      const usedToday = new Set<number>();
+
+      if (isSaturday) {
+        // ── SÁBADO: 1 médico SUS 12h (manhã + tarde) ──
+        const needsSaturdayMorningSus = !hasShiftCoverage(entries, dateStr, "manha_sus");
+        const needsSaturdayAfternoonSus = !hasShiftCoverage(entries, dateStr, "tarde_sus");
+
+        if (needsSaturdayMorningSus || needsSaturdayAfternoonSus) {
+          const saturdaySusDoctor = pickSequentialWeekendDoctor(
+            saturdaySusRotationState,
+            saturdaySusPool,
+            day,
+            "manha_sus",
+            usedToday,
+            weekOfMonth,
+            (doctor) => {
+              if (
+                hasSpecificFixedWeekendRule(doctor.id, day, "plantao_24h")
+              ) {
+                return false;
+              }
+              if (
+                needsSaturdayMorningSus &&
+                !canAssignAutomatically(
+                  doctor,
+                  dateStr,
+                  "manha_sus",
+                  entries,
+                  exceptions,
+                  holidayDates
+                )
+              ) {
+                return false;
+              }
+              if (
+                needsSaturdayAfternoonSus &&
+                !canAssignAutomatically(
+                  doctor,
+                  dateStr,
+                  "tarde_sus",
+                  entries,
+                  exceptions,
+                  holidayDates
+                )
+              ) {
+                return false;
+              }
+              return true;
+            },
+            pass === "fixed"
+          );
+
+          if (saturdaySusDoctor) {
+            if (needsSaturdayMorningSus && !hasConflict(entries, saturdaySusDoctor.id, dateStr, "manha_sus")) {
+              entries.push({ doctorId: saturdaySusDoctor.id, entryDate: dateStr, shiftType: "manha_sus", isFixed: true });
+            }
+            if (needsSaturdayAfternoonSus && !hasConflict(entries, saturdaySusDoctor.id, dateStr, "tarde_sus")) {
+              entries.push({ doctorId: saturdaySusDoctor.id, entryDate: dateStr, shiftType: "tarde_sus", isFixed: true });
+            }
+            usedToday.add(saturdaySusDoctor.id);
+            weekendDoctorsUsedThisMonth.add(saturdaySusDoctor.id);
+            incrementWeekendCounter(
+              weekendBlockCountThisMonth,
+              weekendBlockSeenThisMonth,
+              saturdaySusDoctor.id,
+              weekendBlockKey
+            );
+          } else if (pass === "rotation") {
+            if (needsSaturdayMorningSus) {
+              conflicts.push({ date: dateStr, shiftType: "manha_sus", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para SUS no sábado ${dateStr}`, suggestedDoctorIds: saturdaySusPool.map((d) => d.id) });
+            }
+            if (needsSaturdayAfternoonSus) {
+              conflicts.push({ date: dateStr, shiftType: "tarde_sus", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para SUS no sábado ${dateStr}`, suggestedDoctorIds: saturdaySusPool.map((d) => d.id) });
+            }
+          }
+        }
+
+        // ── SÁBADO: 1 médico Convênio 24h ──
+        if (!hasShiftCoverage(entries, dateStr, "plantao_24h")) {
+          const convDoc = pickSequentialWeekendDoctor(
+            weekend24hRotationState,
+            fdsSabConvPool,
+            day,
+            "plantao_24h",
+            usedToday,
+            weekOfMonth,
+            () => true,
+            pass === "fixed"
+          );
+          if (convDoc) {
+            entries.push({ doctorId: convDoc.id, entryDate: dateStr, shiftType: "plantao_24h", isFixed: true });
+            usedToday.add(convDoc.id);
+            weekendDoctorsUsedThisMonth.add(convDoc.id);
+            incrementWeekendCounter(
+              weekendBlockCountThisMonth,
+              weekendBlockSeenThisMonth,
+              convDoc.id,
+              weekendBlockKey
+            );
+            // Registrar para bloquear no domingo seguinte
+            const nextDay = new Date(day);
+            nextDay.setDate(nextDay.getDate() + 1);
+            satConvDoctorByDate.set(toDateStr(nextDay), convDoc.id);
+          } else if (pass === "rotation") {
+            conflicts.push({ date: dateStr, shiftType: "plantao_24h", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para Convênio 24h no sábado ${dateStr}`, suggestedDoctorIds: fdsSabConvPool.map((d) => d.id) });
+          }
+        }
+
+      } else {
+        // ── DOMINGO: 1 médico 24h (SUS + Convênio) ──
+        // Bloquear o médico que fez convênio 24h no sábado anterior (já trabalhou até 8h deste domingo)
+        const blockedFromSat = satConvDoctorByDate.get(dateStr);
+        if (blockedFromSat) usedToday.add(blockedFromSat);
+
+        const existingSunday24h = entries.find((entry) => entry.entryDate === dateStr && entry.shiftType === "plantao_24h");
+        if (existingSunday24h) {
+          usedToday.add(existingSunday24h.doctorId);
+          if (!weekendDoctorsUsedThisMonth.has(existingSunday24h.doctorId)) {
+            weekendDoctorsUsedThisMonth.add(existingSunday24h.doctorId);
+            incrementWeekendCounter(
+              weekendBlockCountThisMonth,
+              weekendBlockSeenThisMonth,
+              existingSunday24h.doctorId,
+              weekendBlockKey
+            );
+          }
+          // Nota: advanceMasterWeekendRotation já foi chamado ou será pelo logic de entries iniciais,
+          // mas para fins de rodízio aqui, apenas garantimos.
+          // advanceMasterWeekendRotation(weekend24hRotationState, existingSunday24h.doctorId);
+          continue;
+        }
+
+        const domDoc = pickSequentialWeekendDoctor(
+          weekend24hRotationState,
+          fdsDomPool,
           day,
-          "manha_sus",
+          "plantao_24h",
           usedToday,
           weekOfMonth,
-          (doctor) => {
-            if (
-              hasSpecificFixedWeekendRule(doctor.id, day, "plantao_24h")
-            ) {
-              return false;
-            }
-            if (
-              needsSaturdayMorningSus &&
-              !canAssignAutomatically(
-                doctor,
-                dateStr,
-                "manha_sus",
-                entries,
-                exceptions,
-                holidayDates
-              )
-            ) {
-              return false;
-            }
-            if (
-              needsSaturdayAfternoonSus &&
-              !canAssignAutomatically(
-                doctor,
-                dateStr,
-                "tarde_sus",
-                entries,
-                exceptions,
-                holidayDates
-              )
-            ) {
-              return false;
-            }
-            return true;
-          }
+          () => true,
+          pass === "fixed"
         );
-
-        if (saturdaySusDoctor) {
-          if (needsSaturdayMorningSus && !hasConflict(entries, saturdaySusDoctor.id, dateStr, "manha_sus")) {
-            entries.push({ doctorId: saturdaySusDoctor.id, entryDate: dateStr, shiftType: "manha_sus", isFixed: true });
-          }
-          if (needsSaturdayAfternoonSus && !hasConflict(entries, saturdaySusDoctor.id, dateStr, "tarde_sus")) {
-            entries.push({ doctorId: saturdaySusDoctor.id, entryDate: dateStr, shiftType: "tarde_sus", isFixed: true });
-          }
-          usedToday.add(saturdaySusDoctor.id);
-          weekendDoctorsUsedThisMonth.add(saturdaySusDoctor.id);
+        if (domDoc) {
+          entries.push({ doctorId: domDoc.id, entryDate: dateStr, shiftType: "plantao_24h", isFixed: true });
+          usedToday.add(domDoc.id);
+          weekendDoctorsUsedThisMonth.add(domDoc.id);
           incrementWeekendCounter(
             weekendBlockCountThisMonth,
             weekendBlockSeenThisMonth,
-            saturdaySusDoctor.id,
+            domDoc.id,
             weekendBlockKey
           );
-        } else {
-          if (needsSaturdayMorningSus) {
-            conflicts.push({ date: dateStr, shiftType: "manha_sus", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para SUS no sábado ${dateStr}`, suggestedDoctorIds: saturdaySusPool.map((d) => d.id) });
-          }
-          if (needsSaturdayAfternoonSus) {
-            conflicts.push({ date: dateStr, shiftType: "tarde_sus", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para SUS no sábado ${dateStr}`, suggestedDoctorIds: saturdaySusPool.map((d) => d.id) });
-          }
+        } else if (pass === "rotation") {
+          conflicts.push({ date: dateStr, shiftType: "plantao_24h", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para plantão 24h no domingo ${dateStr}`, suggestedDoctorIds: fdsDomPool.map((d) => d.id) });
         }
-      }
-
-      // ── SÁBADO: 1 médico Convênio 24h ──
-      // Sábado 24h e domingo 24h compartilham a mesma ordem de rodízio.
-      // O médico do convênio de sábado faz 24h (sáb 8h → dom 8h), portanto NÃO pode fazer o domingo também
-      const convDoc = pickSequentialWeekendDoctor(
-        weekend24hRotationState,
-        fdsSabConvPool,
-        day,
-        "plantao_24h",
-        usedToday,
-        weekOfMonth,
-        () => true
-      );
-      if (convDoc) {
-        entries.push({ doctorId: convDoc.id, entryDate: dateStr, shiftType: "plantao_24h", isFixed: true });
-        usedToday.add(convDoc.id);
-        weekendDoctorsUsedThisMonth.add(convDoc.id);
-        incrementWeekendCounter(
-          weekendBlockCountThisMonth,
-          weekendBlockSeenThisMonth,
-          convDoc.id,
-          weekendBlockKey
-        );
-        // Registrar para bloquear no domingo seguinte
-        const nextDay = new Date(day);
-        nextDay.setDate(nextDay.getDate() + 1);
-        satConvDoctorByDate.set(toDateStr(nextDay), convDoc.id);
-      } else {
-        conflicts.push({ date: dateStr, shiftType: "plantao_24h", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para Convênio 24h no sábado ${dateStr}`, suggestedDoctorIds: fdsSabConvPool.map((d) => d.id) });
-      }
-
-    } else {
-      // ── DOMINGO: 1 médico 24h (SUS + Convênio) ──
-      // Bloquear o médico que fez convênio 24h no sábado anterior (já trabalhou até 8h deste domingo)
-      const blockedFromSat = satConvDoctorByDate.get(dateStr);
-      if (blockedFromSat) usedToday.add(blockedFromSat);
-
-      const existingSunday24h = entries.find((entry) => entry.entryDate === dateStr && entry.shiftType === "plantao_24h");
-      if (existingSunday24h) {
-        usedToday.add(existingSunday24h.doctorId);
-        weekendDoctorsUsedThisMonth.add(existingSunday24h.doctorId);
-        incrementWeekendCounter(
-          weekendBlockCountThisMonth,
-          weekendBlockSeenThisMonth,
-          existingSunday24h.doctorId,
-          weekendBlockKey
-        );
-        advanceMasterWeekendRotation(weekend24hRotationState, existingSunday24h.doctorId);
-        continue;
-      }
-
-      const domDoc = pickSequentialWeekendDoctor(
-        weekend24hRotationState,
-        fdsDomPool,
-        day,
-        "plantao_24h",
-        usedToday,
-        weekOfMonth,
-        () => true
-      );
-      if (domDoc) {
-        entries.push({ doctorId: domDoc.id, entryDate: dateStr, shiftType: "plantao_24h", isFixed: true });
-        usedToday.add(domDoc.id);
-        weekendDoctorsUsedThisMonth.add(domDoc.id);
-        incrementWeekendCounter(
-          weekendBlockCountThisMonth,
-          weekendBlockSeenThisMonth,
-          domDoc.id,
-          weekendBlockKey
-        );
-      } else {
-        conflicts.push({ date: dateStr, shiftType: "plantao_24h", doctorId: 0, type: "missing_coverage", message: `Sem médico disponível para plantão 24h no domingo ${dateStr}`, suggestedDoctorIds: fdsDomPool.map((d) => d.id) });
       }
     }
   }
@@ -1296,6 +1326,27 @@ export function validateEntry(
 
   if (!canDoShift) {
     conflicts.push({ date: dateStr, shiftType, doctorId, type: "restriction_violation", message: `Médico não pode fazer ${shiftType.replace("_", " ")}` });
+  }
+
+  // Descanso de FDS: Médico 24h no sábado não pode fazer 24h no domingo (e vice-versa)
+  if (shiftType === "plantao_24h" && (isSaturday || isSunday)) {
+    const otherWeekendDay = new Date(date);
+    otherWeekendDay.setDate(date.getDate() + (isSaturday ? 1 : -1));
+    const otherWeekendDayStr = toDateStr(otherWeekendDay);
+    
+    const hasBackToBack24h = existingEntries.some(
+      (e) => e.doctorId === doctorId && e.entryDate === otherWeekendDayStr && e.shiftType === "plantao_24h"
+    );
+
+    if (hasBackToBack24h) {
+      conflicts.push({ 
+        date: dateStr, 
+        shiftType, 
+        doctorId, 
+        type: "restriction_violation", 
+        message: "Descanso de FDS — médico não pode fazer 24h no sábado e no domingo consecutivamente" 
+      });
+    }
   }
 
   return conflicts;

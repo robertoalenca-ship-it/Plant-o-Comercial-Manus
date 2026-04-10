@@ -24,6 +24,7 @@ Variaveis opcionais:
 
 - `VITE_ANALYTICS_ENDPOINT`
 - `VITE_ANALYTICS_WEBSITE_ID`
+- `VITE_SALES_CONTACT_URL`
 
 ## 3. Banco e migracao
 
@@ -73,3 +74,4 @@ Depois do deploy, teste:
 - Em producao, o fallback de login local nao existe.
 - As leituras agora exigem usuario autenticado.
 - As mutacoes de operacao exigem perfil `admin` ou `coordinator`.
+- Variaveis `VITE_*` alimentam a camada publica/front-end e precisam estar disponiveis no build.

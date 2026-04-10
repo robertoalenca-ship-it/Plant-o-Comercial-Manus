@@ -109,4 +109,4 @@
 - [x] Atualizar seed de regras de FDS com lista de elegíveis por tipo
 - [x] Corrigir residentes (Walesca, Lara, Thaiane, Caio Silva): canDomingo=false, não participam do rodízio de domingo
 - [x] Gerar escala de maio 2026 equilibrada com base na carga de abril (rodízio justo, cobertura completa)
-- [ ] Corrigir FDS: médico convênio sábado 24h não pode ser o mesmo do domingo 24h (dias consecutivos bloqueados)
+- [x] Corrigir FDS: médico convênio sábado 24h não pode ser o mesmo do domingo 24h (dias consecutivos bloqueados)

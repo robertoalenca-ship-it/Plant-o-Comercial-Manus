@@ -25,6 +25,7 @@ cp .env.docker.example .env.docker
 ```
 
 2. Ajuste as senhas e a porta.
+   Se quiser usar CTA comercial na landing, preencha tambem `VITE_SALES_CONTACT_URL`.
 
 3. Suba usando o arquivo:
 
@@ -67,3 +68,4 @@ Depois da subida:
 ## Observacao
 
 O endpoint `/readyz` agora aceita producao com login local. Se voce preencher as variaveis de OAuth, ele tambem valida esse modo.
+As variaveis `VITE_*` sao publicas e entram no build da interface. Se altera-las, recrie a imagem com `npm run docker:up`.

@@ -1,5 +1,6 @@
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { randomBytes } from "node:crypto";
 import {
   InsertScheduleProfile,
   InsertUser,
@@ -18,6 +19,7 @@ import {
   userProfiles,
   weekendRules,
   weeklyRules,
+  authTokens,
 } from "../drizzle/schema";
 import {
   getOfflineDoctorById,
@@ -61,8 +63,8 @@ type OfflineRuntimeHoliday = typeof holidays.$inferSelect;
 type OfflineRuntimeLocalUserCredential =
   typeof localUserCredentials.$inferSelect;
 
-const DEFAULT_PROFILE_NAME = "Clínica Padrão";
-const DEFAULT_PROFILE_DESCRIPTION = "Escala principal";
+const DEFAULT_PROFILE_NAME = "Equipe Padrão";
+const DEFAULT_PROFILE_DESCRIPTION = "Perfil base do sistema";
 const LEGACY_PROFILE_ID = 1;
 const LOCAL_DEV_OPEN_ID = "__local_dev_admin__";
 
@@ -125,16 +127,21 @@ function normalizeExceptionRecord<T extends { specificDate: string | Date | null
 export type ManagedLocalUser = {
   userId: number;
   openId: string;
-  username: string;
+  email: string;
   name: string | null;
-  email: string | null;
   role: typeof users.$inferSelect["role"];
   loginMethod: string | null;
   active: boolean;
+  isEmailVerified: boolean;
   isBuiltIn: boolean;
   createdAt: Date;
   updatedAt: Date;
   lastSignedIn: Date;
+  maxProfiles: number;
+  isPaid: boolean;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: string | null;
 };
 
 type ManagedLocalUserWithPassword = ManagedLocalUser & {
@@ -382,16 +389,21 @@ function getBuiltInAdminUser(): ManagedLocalUser {
   return {
     userId: 0,
     openId: LOCAL_DEV_OPEN_ID,
-    username: ENV.localLoginUsername.trim().toLowerCase(),
+    email: ENV.localLoginUsername.trim().toLowerCase(),
     name: "Administrador",
-    email: "admin@local",
     role: "admin",
     loginMethod: "password",
     active: true,
+    isEmailVerified: true,
     isBuiltIn: true,
     createdAt: now,
     updatedAt: now,
     lastSignedIn: now,
+    maxProfiles: 999,
+    isPaid: true,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    subscriptionStatus: "active",
   };
 }
 
@@ -403,16 +415,21 @@ function toManagedLocalUser(
   return {
     userId: user.id,
     openId: user.openId,
-    username: credential.username,
+    email: credential.username,
     name: user.name ?? null,
-    email: user.email ?? null,
     role: user.role,
     loginMethod: user.loginMethod ?? null,
     active: credential.active,
+    isEmailVerified: user.isEmailVerified,
     isBuiltIn,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     lastSignedIn: user.lastSignedIn,
+    maxProfiles: user.maxProfiles,
+    isPaid: user.isPaid,
+    stripeCustomerId: user.stripeCustomerId ?? null,
+    stripeSubscriptionId: user.stripeSubscriptionId ?? null,
+    subscriptionStatus: user.subscriptionStatus ?? null,
   };
 }
 
@@ -421,7 +438,7 @@ function sortManagedLocalUsers(left: ManagedLocalUser, right: ManagedLocalUser) 
     return left.isBuiltIn ? -1 : 1;
   }
 
-  return left.username.localeCompare(right.username, "pt-BR", {
+  return left.email.localeCompare(right.email, "pt-BR", {
     sensitivity: "base",
   });
 }
@@ -443,17 +460,17 @@ function listOfflineManagedLocalUsers() {
     .filter((user): user is ManagedLocalUser => Boolean(user));
 
   const builtInAdmin = getBuiltInAdminUser();
-  if (!managedUsers.some((user) => user.username === builtInAdmin.username)) {
+  if (!managedUsers.some((user) => user.email === builtInAdmin.email)) {
     managedUsers.unshift(builtInAdmin);
   }
 
   return managedUsers.sort(sortManagedLocalUsers);
 }
 
-function findOfflineManagedLocalUserByUsername(username: string) {
-  const normalizedUsername = username.trim().toLowerCase();
+function findOfflineManagedLocalUserByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
   const credential = Array.from(offlineRuntimeLocalUserCredentialsById.values()).find(
-    (item) => item.username === normalizedUsername
+    (item) => item.username === normalizedEmail
   );
 
   if (!credential) return null;
@@ -517,6 +534,75 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 
+export async function createAuthToken(input: {
+  userId: number;
+  type: typeof authTokens.$inferSelect["type"];
+  expiresInMinutes?: number;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + (input.expiresInMinutes ?? 60));
+
+  await db.insert(authTokens).values({
+    userId: input.userId,
+    token,
+    type: input.type,
+    expiresAt,
+  });
+
+  return token;
+}
+
+export async function verifyAuthToken(token: string, type: typeof authTokens.$inferSelect["type"]) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const [record] = await db
+    .select()
+    .from(authTokens)
+    .where(
+      and(
+        eq(authTokens.token, token),
+        eq(authTokens.type, type),
+        gte(authTokens.expiresAt, new Date()),
+        sql`${authTokens.usedAt} IS NULL`
+      )
+    )
+    .limit(1);
+
+  if (!record) return null;
+
+  await db
+    .update(authTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(authTokens.id, record.id));
+
+  return record;
+}
+
+export async function setEmailVerified(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(users)
+    .set({ isEmailVerified: true })
+    .where(eq(users.id, userId));
+}
+
+export async function updateLocalUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(localUserCredentials)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(localUserCredentials.userId, userId));
+}
+
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
@@ -547,21 +633,21 @@ export async function listManagedLocalUsers(): Promise<ManagedLocalUser[]> {
   );
 
   const builtInAdmin = getBuiltInAdminUser();
-  if (!managedUsers.some((user) => user.username === builtInAdmin.username)) {
+  if (!managedUsers.some((user) => user.email === builtInAdmin.email)) {
     managedUsers.push(builtInAdmin);
   }
 
   return managedUsers.sort(sortManagedLocalUsers);
 }
 
-export async function getManagedLocalUserByUsername(
-  username: string
+export async function getManagedLocalUserByEmail(
+  email: string
 ): Promise<ManagedLocalUserWithPassword | null> {
-  const normalizedUsername = username.trim().toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
   const db = await getDb();
 
   if (!db || !(await hasLocalUserCredentialsSchema(db))) {
-    return findOfflineManagedLocalUserByUsername(normalizedUsername);
+    return findOfflineManagedLocalUserByEmail(normalizedEmail);
   }
 
   const rows = await db
@@ -571,7 +657,7 @@ export async function getManagedLocalUserByUsername(
     })
     .from(localUserCredentials)
     .innerJoin(users, eq(localUserCredentials.userId, users.id))
-    .where(eq(localUserCredentials.username, normalizedUsername))
+    .where(eq(localUserCredentials.username, normalizedEmail))
     .limit(1);
 
   const row = rows[0];
@@ -609,23 +695,23 @@ export async function getManagedLocalUserByOpenId(
 }
 
 export async function createManagedLocalUser(input: {
-  email?: string | null;
+  email: string;
   name: string;
   openId: string;
   passwordHash: string;
   role: typeof users.$inferSelect["role"];
-  username: string;
+  isEmailVerified?: boolean;
 }) {
-  const normalizedUsername = input.username.trim().toLowerCase();
+  const normalizedEmail = input.email.trim().toLowerCase();
   const builtInAdmin = getBuiltInAdminUser();
 
-  if (normalizedUsername === builtInAdmin.username) {
-    throw new Error("Este login e reservado pelo administrador padrao do sistema");
+  if (normalizedEmail === builtInAdmin.email) {
+    throw new Error("Este e-mail e reservado pelo administrador padrao do sistema");
   }
 
-  const existing = await getManagedLocalUserByUsername(normalizedUsername);
+  const existing = await getManagedLocalUserByEmail(normalizedEmail);
   if (existing) {
-    throw new Error("Ja existe um usuario com este login");
+    throw new Error("Ja existe um usuario com este e-mail");
   }
 
   const db = await getDb();
@@ -636,17 +722,23 @@ export async function createManagedLocalUser(input: {
       id: nextUserId,
       openId: input.openId,
       name: input.name,
-      email: input.email ?? null,
+      email: normalizedEmail,
       loginMethod: "password",
       role: input.role,
+      isEmailVerified: input.isEmailVerified ?? false,
       createdAt: now,
       updatedAt: now,
       lastSignedIn: now,
+      maxProfiles: 1,
+      isPaid: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: null,
     };
     const createdCredential: OfflineRuntimeLocalUserCredential = {
       id: getNextOfflineRuntimeId(offlineRuntimeLocalUserCredentialsById),
       userId: nextUserId,
-      username: normalizedUsername,
+      username: normalizedEmail,
       passwordHash: input.passwordHash,
       active: true,
       createdAt: now,
@@ -666,10 +758,16 @@ export async function createManagedLocalUser(input: {
     const userInsert = await tx.insert(users).values({
       openId: input.openId,
       name: input.name,
-      email: input.email ?? null,
+      email: normalizedEmail,
       loginMethod: "password",
       role: input.role,
+      isEmailVerified: input.isEmailVerified ?? false,
       lastSignedIn: new Date(),
+      maxProfiles: 1,
+      isPaid: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: null,
     });
 
     let userId = Number((userInsert as { insertId?: number }).insertId ?? 0);
@@ -689,7 +787,7 @@ export async function createManagedLocalUser(input: {
 
     await tx.insert(localUserCredentials).values({
       userId,
-      username: normalizedUsername,
+      username: normalizedEmail,
       passwordHash: input.passwordHash,
       active: true,
     });
@@ -788,14 +886,17 @@ export async function deleteManagedLocalUser(userId: number) {
 }
 
 // Schedule profiles
-export async function listScheduleProfiles(userId?: number) {
+export async function listScheduleProfiles(
+  userId?: number,
+  role?: typeof users.$inferSelect["role"]
+) {
   const db = await getDb();
   if (!db) return getOfflineRuntimeScheduleProfiles();
 
   await ensureDefaultScheduleProfile(db);
   const profiles = await selectActiveScheduleProfiles(db);
 
-  if (!userId) {
+  if (userId === undefined || userId === null) {
     return profiles;
   }
 
@@ -804,6 +905,18 @@ export async function listScheduleProfiles(userId?: number) {
   // Por precaução, bater na tabela user_profiles
   const userLinks = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
   const linkedProfileIds = new Set(userLinks.map((link) => link.profileId));
+
+  if (role === "admin" && linkedProfileIds.size === 0) {
+    if (profiles.length <= 1) {
+      return profiles;
+    }
+
+    return [...profiles].sort((left, right) => {
+      if (left.id === LEGACY_PROFILE_ID) return 1;
+      if (right.id === LEGACY_PROFILE_ID) return -1;
+      return 0;
+    });
+  }
 
   return profiles.filter((p) => linkedProfileIds.has(p.id));
 }
@@ -864,9 +977,10 @@ export async function createScheduleProfile(data: InsertScheduleProfile, ownerUs
 
   const result = await db.insert(scheduleProfiles).values(data);
   const insertId = Number((result as { insertId?: number }).insertId ?? 0);
+  const hasOwnerUserId = ownerUserId !== undefined && ownerUserId !== null;
 
   if (insertId > 0) {
-    if (ownerUserId) {
+    if (hasOwnerUserId) {
       await db.insert(userProfiles).values({
         userId: ownerUserId,
         profileId: insertId,
@@ -878,7 +992,7 @@ export async function createScheduleProfile(data: InsertScheduleProfile, ownerUs
 
   const profiles = await selectActiveScheduleProfiles(db);
   const matched = profiles.find((profile) => profile.name === data.name) ?? profiles.at(-1) ?? null;
-  if (matched && ownerUserId) {
+  if (matched && hasOwnerUserId) {
      const exists = await db.select().from(userProfiles).where(and(eq(userProfiles.userId, ownerUserId), eq(userProfiles.profileId, matched.id))).limit(1);
      if (exists.length === 0) {
         await db.insert(userProfiles).values({
@@ -957,6 +1071,7 @@ export async function createDoctor(data: typeof doctors.$inferInsert) {
       canDomingo: data.canDomingo ?? false,
       can24h: data.can24h ?? false,
       participaRodizioNoite: data.participaRodizioNoite ?? false,
+      specialty: data.specialty ?? null,
       limiteplantoesmes: data.limiteplantoesmes ?? 0,
       limiteNoitesMes: data.limiteNoitesMes ?? 0,
       limiteFdsMes: data.limiteFdsMes ?? 0,
@@ -1843,6 +1958,7 @@ export async function createEntry(data: typeof scheduleEntries.$inferInsert) {
       isManualOverride: data.isManualOverride ?? false,
       isLocked: data.isLocked ?? false,
       conflictWarning: data.conflictWarning ?? null,
+      confirmationStatus: data.confirmationStatus ?? "pending",
       overrideJustification: data.overrideJustification ?? null,
       notes: data.notes ?? null,
       createdAt: now,
@@ -1958,4 +2074,25 @@ export async function getAuditLogsForSchedule(
     .select()
     .from(auditLogs)
     .where(and(eq(auditLogs.scheduleId, scheduleId), eq(auditLogs.profileId, profileId)));
+}
+
+// SaaS Management
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updateUserSubscription(userId: number, data: Partial<{
+  isPaid: boolean;
+  maxProfiles: number;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: string | null;
+  role: typeof users.$inferSelect["role"];
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set(data).where(eq(users.id, userId));
 }

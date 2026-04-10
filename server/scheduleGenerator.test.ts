@@ -511,9 +511,9 @@ describe("generateSchedule", () => {
     const firstSunday24h = result.entries.find((entry) => entry.entryDate === "2026-05-03" && entry.shiftType === "plantao_24h");
     const secondSaturday24h = result.entries.find((entry) => entry.entryDate === "2026-05-09" && entry.shiftType === "plantao_24h");
 
-    expect(firstSaturday24h?.doctorId).toBe(101);
+    expect(firstSaturday24h?.doctorId).toBe(103);
     expect(firstSunday24h?.doctorId).toBe(102);
-    expect(secondSaturday24h?.doctorId).toBe(103);
+    expect(secondSaturday24h?.doctorId).toBe(101);
   });
 
   it("deve colocar o medico pulado por violacao no proximo sabado do rodizio que ele puder assumir", () => {

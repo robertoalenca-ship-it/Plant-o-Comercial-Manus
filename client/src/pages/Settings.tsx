@@ -2,6 +2,12 @@ import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
+import {
+  buildScheduleProfilePayload,
+  emptyScheduleProfileDraft,
+  TEAM_SIZE_OPTIONS,
+  type TeamSizeOption,
+} from "@/lib/scheduleProfileDraft";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,17 +53,13 @@ export default function Settings() {
   const now = new Date();
   const [year] = useState(now.getFullYear());
   const [month] = useState(now.getMonth() + 1);
-  const [profileForm, setProfileForm] = useState({
-    name: "",
-    description: "",
-  });
+  const [profileForm, setProfileForm] = useState(emptyScheduleProfileDraft);
   const [userForm, setUserForm] = useState({
     name: "",
     email: "",
-    username: "",
-    password: "",
-    role: "viewer",
+    role: "viewer" as "admin" | "coordinator" | "viewer" | "user",
   });
+  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [holidayForm, setHolidayForm] = useState({
     name: "",
     holidayDate: "",
@@ -87,8 +89,8 @@ export default function Settings() {
 
   const createProfileMutation = trpc.scheduleProfiles.create.useMutation({
     onSuccess: async (createdProfile) => {
-      toast.success("Nova escala medica criada.");
-      setProfileForm({ name: "", description: "" });
+      toast.success("Nova equipe criada.");
+      setProfileForm(emptyScheduleProfileDraft);
       await profilesQuery.refetch();
       setActiveProfileId(createdProfile?.id ?? null);
     },
@@ -125,16 +127,13 @@ export default function Settings() {
     onError: (error) => toast.error(`Erro: ${error.message}`),
   });
 
-  // applyBaselineMutation removed
-
-  const createManagedUserMutation = trpc.adminUsers.create.useMutation({
-    onSuccess: async () => {
-      toast.success("Usuario criado com sucesso.");
+  const inviteUserMutation = trpc.adminUsers.invite.useMutation({
+    onSuccess: async (data) => {
+      toast.success("Convite gerado com sucesso!");
+      setLastInviteLink(`${window.location.origin}${data.inviteLink}`);
       setUserForm({
         name: "",
         email: "",
-        username: "",
-        password: "",
         role: "viewer",
       });
       await adminUsersQuery.refetch();
@@ -181,7 +180,7 @@ export default function Settings() {
       <div>
         <h1 className="text-2xl font-bold">Configuracoes</h1>
         <p className="text-sm text-muted-foreground">
-          Gerenciamento de Multi-Tenancy (Multi-Clínicas), Feriados e Status de Mensal.
+          Gerenciamento de equipes/setores, feriados e fechamento mensal.
         </p>
       </div>
 
@@ -189,12 +188,12 @@ export default function Settings() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Stethoscope className="h-4 w-4 text-emerald-500" />
-            Escalas medicas
+            Equipes e setores
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-            Cada escala medica fica separada, com seus proprios medicos,
+            Cada equipe ou setor fica separado, com seus proprios medicos,
             regras, excecoes e meses gerados.
           </div>
 
@@ -202,7 +201,7 @@ export default function Settings() {
             <div className="space-y-3">
               {profiles.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma escala medica cadastrada.
+                  Nenhuma equipe cadastrada.
                 </p>
               ) : null}
               {profiles.map((profile) => {
@@ -215,84 +214,141 @@ export default function Settings() {
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{profile.name}</span>
+                        <span className="font-semibold text-base">{profile.name}</span>
                         {isActive ? (
-                          <Badge className="bg-green-100 text-green-800">
-                            Escala ativa
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                            Equipe ativa
                           </Badge>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {profile.description?.trim() ||
-                          "Escala medica separada para outra especialidade, equipe ou unidade."}
+                      <p className="mt-1 text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Stethoscope className="h-3.5 w-3.5" />
+                        {profile.description?.trim() || "Equipe/setor independente"}
                       </p>
                     </div>
-                    <Button
-                      variant={isActive ? "secondary" : "outline"}
-                      size="sm"
-                      disabled={isActive}
-                      onClick={() => setActiveProfileId(profile.id)}
-                    >
-                      {isActive ? "Em uso" : "Usar esta escala"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={isActive ? "secondary" : "outline"}
+                        size="sm"
+                        disabled={isActive}
+                        onClick={() => setActiveProfileId(profile.id)}
+                        className="h-8 shadow-sm"
+                      >
+                        {isActive ? "Em uso" : "Usar esta equipe"}
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
             </div>
 
             <div className="rounded-lg border p-3">
-              <p className="font-medium">Criar nova escala medica</p>
+              <p className="font-medium">Criar nova equipe</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Exemplo: Clinica Medica, Pediatria, UTI ou Cirurgia.
+                Venda por escala/setor: crie um ambiente novo sempre que houver
+                uma nova equipe operacional.
               </p>
               <div className="mt-4 space-y-3">
-                <div>
-                  <Label className="text-xs">Nome</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={profileForm.name}
-                    onChange={(event) =>
-                      setProfileForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="Ex: Clinica Medica"
-                  />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Equipe/setor</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={profileForm.teamName}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          teamName: event.target.value,
+                        }))
+                      }
+                      placeholder="Ex: UTI Adulto"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Hospital/unidade</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={profileForm.organizationName}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          organizationName: event.target.value,
+                        }))
+                      }
+                      placeholder="Ex: Hospital Sao Jose"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs">Descricao</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={profileForm.description}
-                    onChange={(event) =>
-                      setProfileForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                    placeholder="Opcional"
-                  />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Faixa de medicos</Label>
+                    <Select
+                      value={profileForm.teamSize}
+                      onValueChange={(value) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          teamSize: value as TeamSizeOption,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1 h-9">
+                        <SelectValue placeholder="Selecione a faixa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TEAM_SIZE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Especialidade</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={profileForm.specialty}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          specialty: event.target.value,
+                        }))
+                      }
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  Modelo padrao do produto: <strong>Manha, Tarde e Noite</strong>.
                 </div>
                 <Button
                   className="w-full"
                   onClick={() => {
-                    if (!profileForm.name.trim()) {
-                      toast.error("Informe o nome da nova escala.");
+                    if (!profileForm.teamName.trim()) {
+                      toast.error("Informe o nome da equipe.");
                       return;
                     }
 
-                    createProfileMutation.mutate({
-                      name: profileForm.name.trim(),
-                      description: profileForm.description.trim() || undefined,
-                    });
+                    if (!profileForm.organizationName.trim()) {
+                      toast.error("Informe o hospital ou unidade.");
+                      return;
+                    }
+
+                    if (!profileForm.teamSize) {
+                      toast.error("Selecione a faixa de medicos.");
+                      return;
+                    }
+
+                    createProfileMutation.mutate(
+                      buildScheduleProfilePayload(profileForm)
+                    );
                   }}
                   disabled={createProfileMutation.isPending}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   {createProfileMutation.isPending
                     ? "Criando..."
-                    : "Criar escala"}
+                    : "Criar equipe"}
                 </Button>
               </div>
             </div>
@@ -302,15 +358,15 @@ export default function Settings() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium">
-                  {activeProfile?.name ?? "Clinica Selecionada"}
+                  {activeProfile?.name ?? "Equipe selecionada"}
                 </span>
                 <Badge className="bg-green-100 text-green-800">
-                  Escala ativa
+                  Equipe ativa
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {activeProfile?.description?.trim() ||
-                  "Perfil medico atualmente usado para gerar e editar a escala."}
+                  "Equipe/setor atualmente usado para gerar e editar a escala."}
               </p>
             </div>
             <Button
@@ -335,8 +391,7 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-              Cadastre logins adicionais para o sistema. Cada usuario pode entrar
-              com seu proprio login e senha.
+              Cadastre logins adicionais para o sistema via convite manual.
             </div>
 
             <div className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1.1fr_0.9fr]">
@@ -348,16 +403,16 @@ export default function Settings() {
                 ) : null}
                 {managedUsers.map((managedUser) => (
                   <div
-                    key={`${managedUser.userId}-${managedUser.username}`}
+                    key={`${managedUser.userId}-${managedUser.email}`}
                     className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
                   >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">
-                          {managedUser.name || managedUser.username}
+                          {managedUser.name || managedUser.email}
                         </span>
-                        <Badge variant="outline">@{managedUser.username}</Badge>
-                        <Badge className="bg-blue-100 text-blue-800">
+                        <Badge variant="outline" className="lowercase">{managedUser.email}</Badge>
+                        <Badge className="bg-blue-100 text-blue-800 text-[10px] h-5">
                           {userRoleOptions.find(
                             (option) => option.value === managedUser.role
                           )?.label ?? managedUser.role}
@@ -365,34 +420,32 @@ export default function Settings() {
                         <Badge
                           className={
                             managedUser.active
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
+                              ? "bg-green-100 text-green-800 text-[10px] h-5"
+                              : "bg-gray-100 text-gray-800 text-[10px] h-5"
                           }
                         >
                           {managedUser.active ? "Ativo" : "Inativo"}
                         </Badge>
-                        {managedUser.isBuiltIn ? (
-                          <Badge className="bg-amber-100 text-amber-800">
-                            Padrao
+                        {!managedUser.isEmailVerified && (
+                          <Badge className="bg-amber-100 text-amber-800 text-[10px] h-5">
+                            Pendente
                           </Badge>
-                        ) : null}
+                        )}
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {managedUser.email || "Sem e-mail informado"}
-                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {!managedUser.isBuiltIn ? (
                         <Button
                           variant="destructive"
                           size="sm"
+                          className="h-8 px-3"
                           disabled={
                             deleteManagedUserMutation.isPending ||
                             setManagedUserActiveMutation.isPending
                           }
                           onClick={() => {
                             const confirmed = window.confirm(
-                              `Excluir o usuario ${managedUser.username}? Esta acao remove tambem a credencial local.`
+                              `Excluir o usuario ${managedUser.email}?`
                             );
 
                             if (!confirmed) return;
@@ -402,13 +455,13 @@ export default function Settings() {
                             });
                           }}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Apagar
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       ) : null}
                       <Button
                         variant={managedUser.active ? "outline" : "secondary"}
                         size="sm"
+                        className="h-8 text-xs"
                         disabled={
                           managedUser.isBuiltIn ||
                           setManagedUserActiveMutation.isPending ||
@@ -428,16 +481,19 @@ export default function Settings() {
                 ))}
               </div>
 
-              <div className="rounded-lg border p-3">
-                <p className="font-medium">Adicionar usuario</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Crie novos acessos para secretaria, coordenacao ou apenas consulta.
+              <div className="rounded-lg border p-3 bg-teal-50/30 border-teal-100/50">
+                <p className="font-semibold text-teal-900 flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Convidar novo profissional
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  O sistema gerará um link único para que o profissional defina sua própria senha.
                 </p>
                 <div className="mt-4 space-y-3">
                   <div>
-                    <Label className="text-xs">Nome</Label>
+                    <Label className="text-[10px] uppercase font-bold text-slate-400">Nome Completo</Label>
                     <Input
-                      className="mt-1 h-9"
+                      className="mt-1 h-9 border-slate-200 focus:border-teal-500"
                       value={userForm.name}
                       onChange={(event) =>
                         setUserForm((current) => ({
@@ -445,13 +501,13 @@ export default function Settings() {
                           name: event.target.value,
                         }))
                       }
-                      placeholder="Nome do usuario"
+                      placeholder="Ex: Dr. Roberto Alencar"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">E-mail</Label>
+                    <Label className="text-[10px] uppercase font-bold text-slate-400">E-mail de Acesso</Label>
                     <Input
-                      className="mt-1 h-9"
+                      className="mt-1 h-9 border-slate-200 focus:border-teal-500"
                       value={userForm.email}
                       onChange={(event) =>
                         setUserForm((current) => ({
@@ -459,50 +515,21 @@ export default function Settings() {
                           email: event.target.value,
                         }))
                       }
-                      placeholder="Opcional"
+                      placeholder="exemplo@hospital.com"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Login</Label>
-                    <Input
-                      className="mt-1 h-9"
-                      value={userForm.username}
-                      onChange={(event) =>
-                        setUserForm((current) => ({
-                          ...current,
-                          username: event.target.value,
-                        }))
-                      }
-                      placeholder="Ex: secretaria.ortopedia"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Senha</Label>
-                    <Input
-                      type="password"
-                      className="mt-1 h-9"
-                      value={userForm.password}
-                      onChange={(event) =>
-                        setUserForm((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                      }
-                      placeholder="Minimo 6 caracteres"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Papel</Label>
+                    <Label className="text-[10px] uppercase font-bold text-slate-400">Permissão</Label>
                     <Select
                       value={userForm.role}
                       onValueChange={(value) =>
                         setUserForm((current) => ({
                           ...current,
-                          role: value,
+                          role: value as any,
                         }))
                       }
                     >
-                      <SelectTrigger className="mt-1 h-9">
+                      <SelectTrigger className="mt-1 h-9 border-slate-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -514,42 +541,51 @@ export default function Settings() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {lastInviteLink && (
+                    <div className="p-3 bg-white border border-teal-200 rounded-lg space-y-2 animate-in slide-in-from-top-2 duration-300">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">Link de Convite Gerado:</p>
+                      <div className="flex gap-2">
+                        <Input value={lastInviteLink} readOnly className="h-8 text-xs bg-slate-50" />
+                        <Button 
+                          size="sm" 
+                          className="h-8 text-[10px] whitespace-nowrap bg-teal-600 hover:bg-teal-700"
+                          onClick={() => {
+                            navigator.clipboard.writeText(lastInviteLink);
+                            toast.success("Link copiado!");
+                          }}
+                        >
+                          Copiar Link
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 italic leading-tight">Envie este link via WhatsApp para o médico.</p>
+                    </div>
+                  )}
+
                   <Button
-                    className="w-full"
+                    className="w-full bg-[#14B8A6] hover:bg-[#0D9488] shadow-md shadow-[#14B8A6]/20 transition-all font-semibold h-10"
                     onClick={() => {
                       if (!userForm.name.trim()) {
-                        toast.error("Informe o nome do usuario.");
+                        toast.error("Informe o nome.");
+                        return;
+                      }
+                      if (!userForm.email.trim()) {
+                        toast.error("Informe o e-mail.");
                         return;
                       }
 
-                      if (!userForm.username.trim()) {
-                        toast.error("Informe o login do usuario.");
-                        return;
-                      }
-
-                      if (userForm.password.trim().length < 6) {
-                        toast.error("A senha deve ter pelo menos 6 caracteres.");
-                        return;
-                      }
-
-                      createManagedUserMutation.mutate({
+                      inviteUserMutation.mutate({
                         name: userForm.name.trim(),
                         email: userForm.email.trim(),
-                        username: userForm.username.trim(),
-                        password: userForm.password,
-                        role: userForm.role as
-                          | "admin"
-                          | "coordinator"
-                          | "viewer"
-                          | "user",
+                        role: userForm.role,
                       });
                     }}
-                    disabled={createManagedUserMutation.isPending}
+                    disabled={inviteUserMutation.isPending}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    {createManagedUserMutation.isPending
-                      ? "Criando usuario..."
-                      : "Criar usuario"}
+                    {inviteUserMutation.isPending
+                      ? "Gerando Convite..."
+                      : "Gerar Link de Convite"}
                   </Button>
                 </div>
               </div>
@@ -741,103 +777,13 @@ export default function Settings() {
               Aparencia
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-medium">Modo de cor</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Alterne entre o tema claro e escuro conforme sua preferencia.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {theme === "light" ? "Modo claro" : "Modo escuro"}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleTheme}
-                  className="gap-2"
-                >
-                  {theme === "light" ? (
-                    <>
-                      <Moon className="h-4 w-4" />
-                      Ativar modo escuro
-                    </>
-                  ) : (
-                    <>
-                      <Sun className="h-4 w-4" />
-                      Ativar modo claro
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
+          <CardContent>
+            <Button variant="outline" size="sm" onClick={toggleTheme}>
+              Alternar para tema {theme === "light" ? "Escuro" : "Claro"}
+            </Button>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <SettingsIcon className="h-4 w-4" />
-            Sobre o sistema
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm text-muted-foreground">
-          <p>
-            <strong>Escala Inteligente - B2B SaaS</strong>
-          </p>
-          <p>
-            Plataforma corporativa de gestão de escalas médicas. Plano atual: Premium Trial.
-          </p>
-          <p className="mt-2">Funcionalidades principais:</p>
-          <ul className="list-disc list-inside ml-2 space-y-0.5">
-            <li>Importacao de base ortopedica abril/maio 2026</li>
-            <li>Feriados, excecoes e validacao de conflitos</li>
-            <li>Gestao multi-perfil (Multi-tenant)</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-            Assinatura e Faturamento
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-medium text-orange-900">
-                Plano Atual: Premium (Avaliação Gratuita)
-              </p>
-              <p className="mt-1 text-sm text-orange-800">
-                Seu período de testes de 14 dias se encerra em breve. Assine agora para evitar bloqueios na geração de escalas.
-              </p>
-            </div>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={() => toast.success("Checkout redirecionando em breve...")}
-            >
-              Fazer Upgrade
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-4 text-sm mt-4">
-            <div className="rounded-lg border p-3">
-              <span className="text-muted-foreground block mb-1">Próxima Fatura</span>
-              <strong className="text-lg">R$ 499,00 / mês</strong>
-              <div className="text-xs text-muted-foreground mt-1">Até 60 médicos gerenciados</div>
-            </div>
-            <div className="rounded-lg border p-3">
-              <span className="text-muted-foreground block mb-1">Médicos Cadastrados</span>
-              <strong className="text-lg">Uso Ilimitado</strong>
-              <div className="text-xs text-muted-foreground mt-1">No plano Premium</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

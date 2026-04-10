@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
@@ -13,6 +14,7 @@ import {
   protectedProcedure,
   publicProcedure,
   router,
+  staffProcedure,
 } from "./_core/trpc";
 import {
   createAuditLog,
@@ -50,7 +52,7 @@ import {
   getExceptionsForMonth,
   getFixedUnavailabilitiesByDoctor,
   getHolidaysForMonth,
-  getManagedLocalUserByUsername,
+  getManagedLocalUserByEmail,
   getScheduleById,
   getScheduleByMonth,
   getWeekendRuleById,
@@ -58,18 +60,28 @@ import {
   listManagedLocalUsers,
   listScheduleProfiles,
   setManagedLocalUserActive,
+  createAuthToken,
+  verifyAuthToken,
+  setEmailVerified,
+  updateLocalUserPassword,
   upsertUser,
   updateDoctor,
   updateException,
   updateSchedule,
   updateWeekendRule,
   updateWeeklyRule,
+  getUserById,
+  updateUserSubscription,
 } from "./db";
-import { applyOrthopedicsBaseline } from "./referenceBaseline";
+import { stripe, STRIPE_PRICES } from "./lib/stripe";
+import {
+  applyOrthopedicsBaseline,
+  resolveImportedDoctorLabels,
+} from "./referenceBaseline";
 import {
   buildLocalOpenId,
   hashLocalPassword,
-  normalizeLocalUsername,
+  normalizeEmail,
   verifyLocalPassword,
 } from "./localPasswordAuth";
 import { generateSchedule, validateEntry } from "./scheduleGenerator";
@@ -108,9 +120,17 @@ const shiftTypeEnum = z.enum([
   "plantao_24h",
 ]);
 
+const scheduleWorkbookEntrySchema = z.object({
+  doctorName: z.string().trim().min(1),
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  shiftType: shiftTypeEnum,
+  sourceLabel: z.string().trim().max(120).optional(),
+});
+
 const doctorSchema = z.object({
   name: z.string().min(1),
   shortName: z.string().min(1),
+  specialty: z.string().optional().nullable(),
   category: z.enum(["titular", "resident", "sesab"]),
   hasSus: z.boolean(),
   hasConvenio: z.boolean(),
@@ -146,19 +166,18 @@ const managedUserRoleSchema = z.enum([
 
 const managedUserSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  email: z.string().trim().email().max(320).optional().or(z.literal("")),
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .regex(
-      /^[a-zA-Z0-9._-]+$/,
-      "Use apenas letras, numeros, ponto, traco ou underscore"
-    ),
-  password: z.string().min(6).max(128),
+  email: z.string().trim().email().max(320),
   role: managedUserRoleSchema,
 });
+
+const acceptInviteSchema = z.object({
+  token: z.string(),
+  password: z.string().min(6).max(128),
+});
+
+function normalizeDoctorIdentity(value: string) {
+  return value.trim().toLocaleLowerCase("pt-BR");
+}
 
 async function requireDoctorInProfile(profileId: number, doctorId: number) {
   const doctor = await getDoctorById(doctorId, profileId);
@@ -176,20 +195,85 @@ async function requireScheduleInProfile(profileId: number, scheduleId: number) {
   return schedule;
 }
 
+const adminRouter = router({
+  listUsers: staffProcedure.query(async () => {
+    return listManagedLocalUsers();
+  }),
+  manualActivate: staffProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        isPaid: z.boolean(),
+        maxProfiles: z.number(),
+        role: z.enum(["user", "admin", "coordinator", "viewer", "staff"]).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await updateUserSubscription(input.userId, {
+        isPaid: input.isPaid,
+        maxProfiles: input.maxProfiles,
+        role: input.role,
+      });
+      return { success: true };
+    }),
+});
+
+const paymentsRouter = router({
+  createCheckoutSession: protectedProcedure
+    .input(
+      z.object({
+        plan: z.enum(["individual", "expansion", "enterprise"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const priceId =
+        STRIPE_PRICES[input.plan.toUpperCase() as keyof typeof STRIPE_PRICES];
+
+      if (!priceId || priceId.includes("mock")) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Pagamento automático ainda não configurado. Por favor, entre em contato via WhatsApp.",
+        });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: `${ENV.appUrl}/app/upgrade?success=true`,
+        cancel_url: `${ENV.appUrl}/app/upgrade?canceled=true`,
+        customer_email: ctx.user.email,
+        metadata: {
+          userId: String(ctx.user.id),
+        },
+      });
+
+      return { url: session.url };
+    }),
+});
+
 export const appRouter = router({
+  admin: adminRouter,
+  payments: paymentsRouter,
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
-    localLogin: publicProcedure
+    login: publicProcedure
       .input(
         z.object({
-          username: z.string().trim().min(1),
+          email: z.string().trim().email(),
           password: z.string().min(1),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        const normalizedUsername = normalizeLocalUsername(input.username);
-        const managedUser = await getManagedLocalUserByUsername(normalizedUsername);
+        const normalizedEmail = normalizeEmail(input.email);
+        const managedUser = await getManagedLocalUserByEmail(normalizedEmail);
 
         if (managedUser) {
           if (!managedUser.active) {
@@ -206,6 +290,9 @@ export const appRouter = router({
             });
           }
 
+          // Check email verification if configured (can be toggled in production)
+          // For now, we allow login but maybe show a warning in the frontend
+          
           await upsertUser({
             openId: managedUser.openId,
             lastSignedIn: new Date(),
@@ -215,7 +302,7 @@ export const appRouter = router({
             {
               openId: managedUser.openId,
               appId: ENV.localSessionAppId,
-              name: managedUser.name || managedUser.username,
+              name: managedUser.name || managedUser.email,
             },
             { expiresInMs: ONE_YEAR_MS }
           );
@@ -229,14 +316,17 @@ export const appRouter = router({
           return {
             success: true,
             user: {
-              name: managedUser.name || managedUser.username,
-              email: managedUser.email || `${managedUser.username}@local`,
+              name: managedUser.name || managedUser.email,
+              email: managedUser.email,
+              isVerified: managedUser.isEmailVerified,
             },
           } as const;
         }
 
+        // Admin fallback check (legacy or dev)
+        const adminEmail = ENV.localLoginUsername.trim().toLowerCase();
         if (
-          normalizedUsername !== normalizeLocalUsername(ENV.localLoginUsername) ||
+          normalizedEmail !== adminEmail ||
           input.password !== ENV.localLoginPassword
         ) {
           throw new TRPCError({
@@ -264,10 +354,84 @@ export const appRouter = router({
           success: true,
           user: {
             name: "Administrador",
-            email: "admin@local",
+            email: adminEmail,
+            isVerified: true,
           },
         } as const;
       }),
+
+    acceptInvite: publicProcedure
+      .input(acceptInviteSchema)
+      .mutation(async ({ input }) => {
+        const record = await verifyAuthToken(input.token, "email_verification");
+        if (!record) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Link de convite invalido ou expirado",
+          });
+        }
+
+        const passwordHash = hashLocalPassword(input.password);
+        
+        await setEmailVerified(record.userId);
+        await updateLocalUserPassword(record.userId, passwordHash);
+
+        return { success: true, message: "Conta ativada com sucesso!" };
+      }),
+
+    register: publicProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(3),
+          email: z.string().trim().email(),
+          password: z.string().min(6),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const email = normalizeEmail(input.email);
+        const passwordHash = hashLocalPassword(input.password);
+
+        try {
+          const user = await createManagedLocalUser({
+            email,
+            name: input.name,
+            openId: buildLocalOpenId(email),
+            passwordHash: passwordHash,
+            role: "coordinator",
+            isEmailVerified: true,
+          });
+
+          const token = await sdk.signSession(
+            {
+              openId: user.openId,
+              appId: ENV.localSessionAppId,
+              name: user.name || user.email,
+            },
+            { expiresInMs: ONE_YEAR_MS }
+          );
+
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, token, {
+            ...cookieOptions,
+            maxAge: ONE_YEAR_MS,
+          });
+
+          return {
+            success: true,
+            user: {
+              name: user.name,
+              email: user.email,
+            },
+          };
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Error ? error.message : "Erro ao criar conta",
+          });
+        }
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -278,28 +442,41 @@ export const appRouter = router({
   adminUsers: router({
     list: adminProcedure.query(() => listManagedLocalUsers()),
 
-    create: adminProcedure
+    invite: adminProcedure
       .input(managedUserSchema)
       .mutation(async ({ input }) => {
-        const username = normalizeLocalUsername(input.username);
-        try {
-          const created = await createManagedLocalUser({
-            name: input.name.trim(),
-            email: input.email?.trim() || null,
-            openId: buildLocalOpenId(username),
-            passwordHash: hashLocalPassword(input.password),
-            role: input.role,
-            username,
-          });
+        const email = normalizeEmail(input.email);
+        
+        // Use a random placeholder password since they will set it later
+        const placeholderHash = hashLocalPassword(randomBytes(16).toString("hex"));
 
-          return created;
-        } catch (error) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              error instanceof Error ? error.message : "Falha ao criar usuario",
-          });
-        }
+        const user = await createManagedLocalUser({
+          email,
+          name: input.name,
+          openId: buildLocalOpenId(email),
+          passwordHash: placeholderHash,
+          role: input.role,
+          isEmailVerified: false,
+        });
+
+        const token = await createAuthToken({
+          userId: user.userId,
+          type: "email_verification",
+          expiresInMinutes: 7 * 24 * 60, // 7 days
+        });
+
+        return {
+          success: true,
+          inviteToken: token,
+          inviteLink: `/invite-accept?token=${token}`,
+        };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteManagedLocalUser(input.userId);
+        return { success: true };
       }),
 
     setActive: adminProcedure
@@ -323,37 +500,31 @@ export const appRouter = router({
           });
         }
       }),
-
-    delete: adminProcedure
-      .input(
-        z.object({
-          userId: z.number().int().min(0),
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          await deleteManagedLocalUser(input.userId);
-          return { success: true } as const;
-        } catch (error) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              error instanceof Error ? error.message : "Falha ao excluir usuario",
-          });
-        }
-      }),
   }),
 
   scheduleProfiles: router({
-    list: protectedProcedure.query(({ ctx }) => listScheduleProfiles(ctx.user?.id)),
+    list: protectedProcedure.query(({ ctx }) =>
+      listScheduleProfiles(ctx.user.id, ctx.user.role)
+    ),
 
     create: protectedProcedure
       .input(scheduleProfileSchema)
       .mutation(async ({ input, ctx }) => {
+        // Verifica limite de unidades do plano/licença
+        const existingProfiles = await listScheduleProfiles(ctx.user.id, ctx.user.role);
+        
+        // Admins tem cota ilimitada; outros seguem maxProfiles
+        if (ctx.user.role !== "admin" && existingProfiles.length >= ctx.user.maxProfiles) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Limite de unidades atingido. Adquira uma nova licença para cadastrar outro hospital.",
+          });
+        }
+
         const created = await createScheduleProfile({
           name: input.name.trim(),
           description: input.description?.trim() || null,
-        }, ctx.user?.id);
+        }, ctx.user.id);
 
         if (!created) {
           throw new TRPCError({
@@ -394,8 +565,102 @@ export const appRouter = router({
     create: managerProfileProcedure
       .input(doctorSchema)
       .mutation(async ({ input, ctx }) => {
+        // Trava para versão de teste: máximo de 5 médicos
+        if (!ctx.user.isPaid) {
+          const count = (await getAllDoctors(ctx.scheduleProfileId)).length;
+          if (count >= 5) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Limite de 5 médicos atingido na versão de teste. Adquira uma licença para cadastrar mais profissionais.",
+            });
+          }
+        }
         await createDoctor({ ...input, profileId: ctx.scheduleProfileId });
         return { success: true };
+      }),
+
+    import: managerProfileProcedure
+      .input(
+        z.object({
+          rows: z.array(doctorSchema).min(1).max(500),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const existingDoctors = await getAllDoctors(ctx.scheduleProfileId);
+        const knownNames = new Set(
+          existingDoctors.map((doctor) => normalizeDoctorIdentity(doctor.name))
+        );
+        const knownShortNames = new Set(
+          existingDoctors.map((doctor) =>
+            normalizeDoctorIdentity(doctor.shortName)
+          )
+        );
+        const skipped: Array<{
+          rowNumber: number;
+          name: string;
+          reason: string;
+        }> = [];
+        let created = 0;
+
+        for (let index = 0; index < input.rows.length; index += 1) {
+          const row = input.rows[index];
+          const normalizedName = normalizeDoctorIdentity(row.name);
+          const normalizedShortName = normalizeDoctorIdentity(row.shortName);
+
+          if (knownNames.has(normalizedName)) {
+            skipped.push({
+              rowNumber: index + 1,
+              name: row.name,
+              reason: "nome ja cadastrado nesta equipe",
+            });
+            continue;
+          }
+
+          if (knownShortNames.has(normalizedShortName)) {
+            skipped.push({
+              rowNumber: index + 1,
+              name: row.name,
+              reason: "nome curto ja cadastrado nesta equipe",
+            });
+            continue;
+          }
+
+          // Trava para versão de teste no import CSV
+          if (!ctx.user.isPaid) {
+            const currentCount = (await getAllDoctors(ctx.scheduleProfileId)).length;
+            if (currentCount + created >= 5) {
+              skipped.push({
+                rowNumber: index + 1,
+                name: row.name,
+                reason: "limite de 5 medicos da versao de teste atingido",
+              });
+              continue;
+            }
+          }
+
+          await createDoctor({ ...row, profileId: ctx.scheduleProfileId });
+          knownNames.add(normalizedName);
+          knownShortNames.add(normalizedShortName);
+          created += 1;
+        }
+
+        if (created > 0) {
+          await createAuditLog({
+            profileId: ctx.scheduleProfileId,
+            userId: ctx.user?.id,
+            action: "import_doctors_csv",
+            description: `${created} medicos importados via CSV`,
+            newValue: {
+              created,
+              skipped: skipped.length,
+            },
+          });
+        }
+
+        return {
+          created,
+          skipped,
+        };
       }),
 
     update: managerProfileProcedure
@@ -414,20 +679,11 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    seed: managerProfileProcedure.mutation(async ({ ctx }) => {
-      const existing = await getAllDoctors(ctx.scheduleProfileId);
-      if (existing.length > 0) {
-        return { message: "Medicos ja cadastrados", count: existing.length };
-      }
-
-      for (const doctor of INITIAL_DOCTORS) {
-        await createDoctor({ ...doctor, profileId: ctx.scheduleProfileId });
-      }
-
-      return {
-        message: "Medicos pre-cadastrados com sucesso",
-        count: INITIAL_DOCTORS.length,
-      };
+    seed: managerProfileProcedure.mutation(async () => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "O pre-cadastro legado de medicos foi desativado.",
+      });
     }),
 
     getUnavailabilities: profileProcedure
@@ -809,6 +1065,13 @@ export const appRouter = router({
     generate: managerProfileProcedure
       .input(z.object({ year: z.number(), month: z.number() }))
       .mutation(async ({ input, ctx }) => {
+        // Bloqueio de funcionalidade premium
+        if (!ctx.user.isPaid) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "A geração automática de escala é uma funcionalidade premium. Adquira uma licença para liberar o uso da IA.",
+          });
+        }
         const profileId = ctx.scheduleProfileId;
         const { year, month } = input;
 
@@ -825,6 +1088,14 @@ export const appRouter = router({
             return new Date(rawDate).toISOString().split("T")[0];
           })
         );
+
+        let existingSchedule = await getScheduleByMonth(profileId, year, month);
+        if (existingSchedule && (existingSchedule.status === "approved" || existingSchedule.status === "locked")) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Nao e possivel regerar uma escala que ja esta aprovada ou bloqueada",
+          });
+        }
 
         const residentIds = allDoctors
           .filter((doctor) => doctor.category === "resident")
@@ -910,6 +1181,121 @@ export const appRouter = router({
         return { ...result, scheduleId: schedule.id };
       }),
 
+    importWorkbook: managerProfileProcedure
+      .input(
+        z.object({
+          entries: z.array(scheduleWorkbookEntrySchema).min(1).max(1000),
+          month: z.number().int().min(1).max(12),
+          year: z.number().int().min(2000).max(2100),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const profileId = ctx.scheduleProfileId;
+        const uniqueDoctorNames = Array.from(
+          new Set(input.entries.map(entry => entry.doctorName.trim()))
+        );
+        const resolvedDoctors = await resolveImportedDoctorLabels(
+          profileId,
+          uniqueDoctorNames
+        );
+
+        if (resolvedDoctors.unresolvedLabels.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Nao foi possivel localizar: ${resolvedDoctors.unresolvedLabels.join(", ")}`,
+          });
+        }
+
+        const importTag = "[importacao-planilha-escala]";
+        const importNote = `${importTag} Escala importada da planilha mensal em ${new Date().toISOString()}`;
+        let schedule = await getScheduleByMonth(profileId, input.year, input.month);
+
+        if (schedule && (schedule.status === "approved" || schedule.status === "locked")) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Nao e possivel importar dados para uma escala que ja esta aprovada ou bloqueada",
+          });
+        }
+
+        if (!schedule) {
+          await createSchedule({
+            profileId,
+            year: input.year,
+            month: input.month,
+            status: "draft",
+            generatedAt: new Date(),
+            notes: importNote,
+          });
+          schedule = await getScheduleByMonth(profileId, input.year, input.month);
+        } else {
+          await updateSchedule(schedule.id, profileId, {
+            generatedAt: new Date(),
+            notes: importNote,
+          });
+          await deleteEntriesForSchedule(schedule.id);
+        }
+
+        if (!schedule) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Falha ao preparar a escala para importacao",
+          });
+        }
+
+        let importedEntries = 0;
+        const seenEntries = new Set<string>();
+
+        for (const entry of input.entries) {
+          const doctorId = resolvedDoctors.resolvedDoctorIds.get(entry.doctorName);
+
+          if (!doctorId) {
+            continue;
+          }
+
+          const dedupeKey = `${entry.entryDate}|${entry.shiftType}|${doctorId}`;
+          if (seenEntries.has(dedupeKey)) {
+            continue;
+          }
+
+          seenEntries.add(dedupeKey);
+
+          await createEntry({
+            scheduleId: schedule.id,
+            doctorId,
+            entryDate: entry.entryDate as unknown as Date,
+            shiftType: entry.shiftType,
+            isFixed: true,
+            isManualOverride: true,
+            isLocked: false,
+            notes: `${importTag} ${entry.sourceLabel ?? ""}`.trim(),
+          });
+          importedEntries += 1;
+        }
+
+        await createAuditLog({
+          profileId,
+          scheduleId: schedule.id,
+          userId: ctx.user?.id,
+          action: "import_schedule_workbook",
+          description: `${importedEntries} plantoes importados via planilha para ${input.month}/${input.year}`,
+          newValue: {
+            createdDoctors: resolvedDoctors.createdDoctors,
+            importedEntries,
+            month: input.month,
+            year: input.year,
+          },
+        });
+
+        return {
+          createdDoctors: resolvedDoctors.createdDoctors,
+          importedEntries,
+          month: input.month,
+          scheduleId: schedule.id,
+          success: true,
+          year: input.year,
+        } as const;
+      }),
+
     addEntry: managerProfileProcedure
       .input(
         z.object({
@@ -917,6 +1303,7 @@ export const appRouter = router({
           doctorId: z.number(),
           entryDate: z.string(),
           shiftType: shiftTypeEnum,
+          confirmationStatus: z.enum(["pending", "confirmed", "adjustment_requested"]).default("pending"),
           notes: z.string().optional(),
           overrideJustification: z.string().optional(),
         })
@@ -924,7 +1311,14 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const profileId = ctx.scheduleProfileId;
         const doctor = await requireDoctorInProfile(profileId, input.doctorId);
-        await requireScheduleInProfile(profileId, input.scheduleId);
+        const schedule = await requireScheduleInProfile(profileId, input.scheduleId);
+
+        if (schedule.status === "approved" || schedule.status === "locked") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Nao e possivel adicionar plantoes a uma escala aprovada ou bloqueada",
+          });
+        }
 
         const entries = await getEntriesForSchedule(input.scheduleId);
         const exceptionsData = await getAllExceptions(profileId);
@@ -955,6 +1349,7 @@ export const appRouter = router({
           doctorId: input.doctorId,
           entryDate: input.entryDate as unknown as Date,
           shiftType: input.shiftType,
+          confirmationStatus: input.confirmationStatus,
           isFixed: false,
           isManualOverride: true,
           conflictWarning:
@@ -983,6 +1378,14 @@ export const appRouter = router({
           ctx.scheduleProfileId,
           input.scheduleId
         );
+
+        if (schedule.status === "approved" || schedule.status === "locked") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Nao e possivel remover plantoes de uma escala aprovada ou bloqueada",
+          });
+        }
+
         const entries = await getEntriesForSchedule(schedule.id);
         const entry = entries.find((item) => item.id === input.entryId);
 
@@ -1090,6 +1493,13 @@ export const appRouter = router({
     getStats: profileProcedure
       .input(z.object({ scheduleId: z.number() }))
       .query(async ({ input, ctx }) => {
+        // Bloqueio de relatórios/estatísticas para free users
+        if (!ctx.user.isPaid) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "A visualização de estatísticas e relatórios é uma funcionalidade premium.",
+          });
+        }
         const schedule = await requireScheduleInProfile(
           ctx.scheduleProfileId,
           input.scheduleId

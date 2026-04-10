@@ -119,7 +119,8 @@ function formatDisplayDate(dateStr: string) {
 
 function buildDoctorSummaries(
   doctors: SchedulePdfDoctor[],
-  entries: SchedulePdfEntry[]
+  entries: SchedulePdfEntry[],
+  professionalPlural?: string
 ) {
   const doctorMap = new Map(doctors.map((doctor) => [doctor.id, doctor]));
   const summaryMap = new Map<number, DoctorSummary>();
@@ -133,7 +134,7 @@ function buildDoctorSummaries(
       summaryMap.set(entry.doctorId, {
         color: doctor?.cor ?? "#2563eb",
         id: entry.doctorId,
-        name: doctor?.name ?? `Medico ${entry.doctorId}`,
+        name: doctor?.name ?? `${professionalPlural?.replace(/s$/i, "") || "Profissional"} ${entry.doctorId}`,
         totalNights: 0,
         totalShifts: 0,
         totalWeekends: 0,
@@ -205,7 +206,7 @@ function buildCalendarRowsHtml(options: BuildSchedulePdfOptions) {
           .map((entry) => {
             const doctor = doctorMap.get(entry.doctorId);
             const doctorName = escapeHtml(
-              doctor?.shortName || doctor?.name || `Medico ${entry.doctorId}`
+              doctor?.shortName || doctor?.name || ` ${options.professionalPlural?.replace(/s$/i, "") || "Profissional"} ${entry.doctorId}`
             );
             const note = entry.notes ? ` <span class="entry-note">(${escapeHtml(entry.notes)})</span>` : "";
             const fixedBadge = entry.isFixed
@@ -283,7 +284,7 @@ function buildCalendarGridHtml(options: BuildSchedulePdfOptions) {
           .map((entry) => {
             const doctor = doctorMap.get(entry.doctorId);
             const doctorName = escapeHtml(
-              doctor?.shortName || doctor?.name || `Medico ${entry.doctorId}`
+              doctor?.shortName || doctor?.name || ` ${options.professionalPlural?.replace(/s$/i, "") || "Profissional"} ${entry.doctorId}`
             );
             const fixedBadge = entry.isFixed
               ? '<span class="calendar-entry-fixed">Fixo</span>'
@@ -338,7 +339,7 @@ function buildCalendarGridHtml(options: BuildSchedulePdfOptions) {
 }
 
 export function buildSchedulePdfHtml(options: BuildSchedulePdfOptions) {
-  const summaries = buildDoctorSummaries(options.doctors, options.entries);
+  const summaries = buildDoctorSummaries(options.doctors, options.entries, options.professionalPlural);
   const totalShifts = options.entries.length;
   const totalProfessionals = new Set(options.entries.map((entry) => entry.doctorId)).size;
   const totalWeekends = options.entries.reduce((count, entry) => {
@@ -513,7 +514,7 @@ export function buildSchedulePdfHtml(options: BuildSchedulePdfOptions) {
             <div>
               <h1 class="title">${escapeHtml(title)}</h1>
               <p class="subtitle">${escapeHtml(
-                options.professionalPlural ?? "Medicos"
+                options.professionalPlural ?? "Profissionais"
               )} escalados por turno no mes selecionado</p>
               <p class="meta">Gerado em ${escapeHtml(generatedAt)}</p>
             </div>
@@ -530,7 +531,7 @@ export function buildSchedulePdfHtml(options: BuildSchedulePdfOptions) {
             </div>
             <div class="summary-card">
               <strong>${totalProfessionals}</strong>
-              <span>${escapeHtml(options.professionalPlural ?? "Medicos")} com escala no mes</span>
+              <span>${escapeHtml(options.professionalPlural ?? "Profissionais")} com escala no mes</span>
             </div>
             <div class="summary-card">
               <strong>${totalWeekends}</strong>
@@ -556,11 +557,11 @@ export function buildSchedulePdfHtml(options: BuildSchedulePdfOptions) {
             </tbody>
           </table>
 
-          <div class="section-title">Resumo por medico</div>
+          <div class="section-title">Resumo por ${escapeHtml(options.professionalPlural?.replace(/s$/i, "") || "profissional").toLowerCase()}</div>
           <table>
             <thead>
               <tr>
-                <th>Medico</th>
+                <th>${escapeHtml(options.professionalPlural?.replace(/s$/i, "") || "Profissional")}</th>
                 <th>Total</th>
                 <th>Noites</th>
                 <th>FDS</th>

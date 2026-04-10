@@ -14,22 +14,27 @@ import {
   offlineWeeklyRules as offlineOrthopedicsWeeklyRules,
   offlineWeekendRules as offlineOrthopedicsWeekendRules,
 } from "./offlineOrthopedics";
+import { ENV } from "./_core/env";
+
+function isLegacyOfflineProfile(profileId: number) {
+  return ENV.enableLegacyOfflineSeed && isOfflineOrthopedicsProfile(profileId);
+}
 
 export function listOfflineScheduleProfiles() {
-  return [offlineOrthopedicsScheduleProfile];
+  return ENV.enableLegacyOfflineSeed ? [offlineOrthopedicsScheduleProfile] : [];
 }
 
 export function getOfflineScheduleProfileById(profileId: number) {
-  if (isOfflineOrthopedicsProfile(profileId)) return offlineOrthopedicsScheduleProfile;
+  if (isLegacyOfflineProfile(profileId)) return offlineOrthopedicsScheduleProfile;
   return undefined;
 }
 
 export function isOfflineProfile(profileId: number) {
-  return isOfflineOrthopedicsProfile(profileId);
+  return isLegacyOfflineProfile(profileId);
 }
 
 export function getOfflineDoctors(profileId: number) {
-  if (isOfflineOrthopedicsProfile(profileId)) {
+  if (isLegacyOfflineProfile(profileId)) {
     return offlineOrthopedicsDoctors.filter((doctor) => doctor.ativo);
   }
 
@@ -37,7 +42,7 @@ export function getOfflineDoctors(profileId: number) {
 }
 
 export function getOfflineDoctorById(profileId: number, doctorId: number) {
-  if (isOfflineOrthopedicsProfile(profileId)) {
+  if (isLegacyOfflineProfile(profileId)) {
     return getOfflineOrthopedicsDoctorById(doctorId);
   }
 
@@ -45,7 +50,7 @@ export function getOfflineDoctorById(profileId: number, doctorId: number) {
 }
 
 export function getOfflineWeeklyRules(profileId: number) {
-  return isOfflineOrthopedicsProfile(profileId)
+  return isLegacyOfflineProfile(profileId)
     ? offlineOrthopedicsWeeklyRules.filter((rule) => rule.ativo)
     : [];
 }
@@ -55,7 +60,7 @@ export function getOfflineWeeklyRuleById(profileId: number, id: number) {
 }
 
 export function getOfflineWeekendRules(profileId: number) {
-  return isOfflineOrthopedicsProfile(profileId)
+  return isLegacyOfflineProfile(profileId)
     ? offlineOrthopedicsWeekendRules.filter((rule) => rule.ativo)
     : [];
 }
@@ -65,7 +70,7 @@ export function getOfflineWeekendRuleById(profileId: number, id: number) {
 }
 
 export function getOfflineExceptions(profileId: number) {
-  return isOfflineOrthopedicsProfile(profileId)
+  return isLegacyOfflineProfile(profileId)
     ? offlineOrthopedicsExceptions.filter((exception) => exception.ativo)
     : [];
 }
@@ -79,17 +84,19 @@ export function getOfflineExceptionsForMonth(
   year: number,
   month: number
 ) {
-  return isOfflineOrthopedicsProfile(profileId)
+  return isLegacyOfflineProfile(profileId)
     ? getOfflineOrthopedicsExceptionsForMonth(year, month)
     : [];
 }
 
 export function getOfflineHolidays() {
-  return offlineOrthopedicsHolidays;
+  return ENV.enableLegacyOfflineSeed ? offlineOrthopedicsHolidays : [];
 }
 
 export function getOfflineHolidaysForMonth(year: number, month: number) {
-  return getOfflineOrthopedicsHolidaysForMonth(year, month);
+  return ENV.enableLegacyOfflineSeed
+    ? getOfflineOrthopedicsHolidaysForMonth(year, month)
+    : [];
 }
 
 export function getOfflineScheduleByMonth(
@@ -97,7 +104,7 @@ export function getOfflineScheduleByMonth(
   year: number,
   month: number
 ) {
-  if (isOfflineOrthopedicsProfile(profileId)) {
+  if (isLegacyOfflineProfile(profileId)) {
     return getOfflineOrthopedicsScheduleByMonth(year, month);
   }
 
@@ -105,7 +112,7 @@ export function getOfflineScheduleByMonth(
 }
 
 export function getOfflineScheduleById(profileId: number, id: number) {
-  if (isOfflineOrthopedicsProfile(profileId)) {
+  if (isLegacyOfflineProfile(profileId)) {
     return getOfflineOrthopedicsScheduleById(id);
   }
 
@@ -113,7 +120,7 @@ export function getOfflineScheduleById(profileId: number, id: number) {
 }
 
 export function getOfflineEntriesForSchedule(profileId: number, scheduleId: number) {
-  if (isOfflineOrthopedicsProfile(profileId)) {
+  if (isLegacyOfflineProfile(profileId)) {
     return scheduleId === getOfflineOrthopedicsScheduleByMonth(2026, 4)?.id
       ? offlineOrthopedicsAprilEntries
       : getOfflineOrthopedicsEntriesForSchedule(scheduleId);

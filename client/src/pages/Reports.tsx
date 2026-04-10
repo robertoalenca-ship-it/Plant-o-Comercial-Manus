@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
+import { appPath } from "@/lib/appRoutes";
 import { trpc } from "@/lib/trpc";
 import { useActiveProfilePresentation } from "@/lib/profilePresentation";
 import {
@@ -8,7 +11,7 @@ import {
 import { exportScheduleAsPdf } from "@/lib/schedulePdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, FileDown, Moon, TrendingUp, Users } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, FileDown, Lock, Moon, TrendingUp, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 const MONTH_NAMES = [
@@ -27,8 +30,10 @@ const MONTH_NAMES = [
 ];
 
 export default function Reports() {
-  const { activeProfileName, professionalPlural, shiftOptions } =
+  const { activeProfileName, professionalSingular, professionalPlural, shiftOptions } =
     useActiveProfilePresentation();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -78,7 +83,7 @@ export default function Reports() {
     }
 
     const rows = [
-      ["Medico", "Total Plantoes", "Noites", "Finais de Semana"],
+      [professionalSingular, "Total Plantoes", "Noites", "Finais de Semana"],
       ...stats
         .filter((stat) => stat.totalShifts > 0)
         .map((stat) => [
@@ -107,7 +112,7 @@ export default function Reports() {
     }
 
     const rows = [
-      ["Data", "Dia da Semana", "Turno", "Medico"],
+      ["Data", "Dia da Semana", "Turno", professionalSingular],
       ...[...schedule.entries]
         .sort((entryA, entryB) => {
           const dateA = String(entryA.entryDate);
@@ -124,7 +129,7 @@ export default function Reports() {
             date.toLocaleDateString("pt-BR"),
             weekdayLabels[date.getDay()],
             getProductShiftLabel(entry.shiftType),
-            doctor?.name ?? `Medico ${entry.doctorId}`,
+            doctor?.name ?? `${professionalSingular} ${entry.doctorId}`,
           ];
         }),
     ];
@@ -182,7 +187,7 @@ export default function Reports() {
       </CardHeader>
       <CardContent className="flex flex-wrap gap-3">
         <Button variant="outline" onClick={exportCSV}>
-          <FileDown className="h-4 w-4 mr-2" /> Resumo por Medico (CSV)
+          <FileDown className="h-4 w-4 mr-2" /> Resumo por {professionalSingular} (CSV)
         </Button>
         <Button variant="outline" onClick={exportDetailedCSV}>
           <FileDown className="h-4 w-4 mr-2" /> Escala Detalhada (CSV)
@@ -196,6 +201,41 @@ export default function Reports() {
       </CardContent>
     </Card>
   ) : null;
+
+  if (!user?.isPaid) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-card/40 backdrop-blur-sm rounded-[2rem] border border-border/60 shadow-xl">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+          <div className="relative bg-background p-6 rounded-3xl border shadow-lg">
+            <Lock className="h-12 w-12 text-amber-500" />
+          </div>
+        </div>
+        <h2 className="text-3xl font-extrabold tracking-tight mb-3">Relatórios Premium</h2>
+        <p className="max-w-md text-muted-foreground leading-relaxed mb-8">
+          A análise detalhada de plantões, score de equilíbrio e exportação gerencial (PDF/CSV) estão disponíveis apenas nos planos pagos.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button 
+            size="lg" 
+            className="bg-primary hover:bg-primary/90 h-12 px-8 font-bold"
+            onClick={() => setLocation(appPath("/upgrade"))}
+          >
+            <Zap className="mr-2 h-4 w-4 fill-current" />
+            Liberar Acesso Agora
+          </Button>
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="h-12 px-8 font-semibold"
+            onClick={() => setLocation(appPath("/"))}
+          >
+            Voltar ao Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -284,7 +324,7 @@ export default function Reports() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4" /> Plantoes por Medico
+              <Users className="h-4 w-4" /> Plantoes por {professionalSingular}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -292,7 +332,7 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-muted-foreground text-xs">
-                    <th className="text-left py-2 font-medium">Medico</th>
+                    <th className="text-left py-2 font-medium">{professionalSingular}</th>
                     <th className="text-right py-2 font-medium">Total</th>
                     <th className="text-right py-2 font-medium">Noites</th>
                     <th className="text-right py-2 font-medium">FDS</th>

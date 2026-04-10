@@ -36,6 +36,20 @@
       "when": 1774832555275,
       "tag": "0004_lethal_phil_sheldon",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1775686684962,
+      "tag": "0005_absurd_molten_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1775780120293,
+      "tag": "0006_nostalgic_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }

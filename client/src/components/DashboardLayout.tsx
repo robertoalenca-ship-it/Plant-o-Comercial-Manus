@@ -19,9 +19,10 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl, isOAuthConfigured } from "@/const";
+import { getLoginUrl, getSalesContactUrl, isOAuthConfigured } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
+import { appPath } from "@/lib/appRoutes";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -32,10 +33,13 @@ import {
   LayoutDashboard,
   LogOut,
   PanelLeft,
+  Plus,
   Settings,
+  Shield,
   Stethoscope,
   Sun,
   Users,
+  Zap,
 } from "lucide-react";
 import {
   FormEvent,
@@ -54,14 +58,18 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: CalendarDays, label: "Calendario", path: "/calendar" },
-  { icon: Users, label: "Medicos", path: "/doctors" },
-  { icon: ClipboardList, label: "Regras Semanais", path: "/weekly-rules" },
-  { icon: Sun, label: "Finais de Semana", path: "/weekend-rules" },
-  { icon: AlertTriangle, label: "Excecoes", path: "/exceptions" },
-  { icon: BarChart3, label: "Relatorios", path: "/reports" },
-  { icon: Settings, label: "Configuracoes", path: "/settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: appPath() },
+  { icon: CalendarDays, label: "Calendario", path: appPath("/calendar") },
+  { icon: Users, label: "Equipe", path: appPath("/doctors") },
+  {
+    icon: ClipboardList,
+    label: "Regras Semanais",
+    path: appPath("/weekly-rules"),
+  },
+  { icon: Sun, label: "Finais de Semana", path: appPath("/weekend-rules") },
+  { icon: AlertTriangle, label: "Excecoes", path: appPath("/exceptions") },
+  { icon: BarChart3, label: "Relatorios", path: appPath("/reports") },
+  { icon: Settings, label: "Configuracoes", path: appPath("/settings") },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -82,17 +90,29 @@ export default function DashboardLayout({
   const { loading, user } = useAuth();
   const [location, setLocation] = useLocation();
   const utils = trpc.useUtils();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const localLoginMutation = trpc.auth.localLogin.useMutation({
+  const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
-      setLoginError(null);
+      setError(null);
       await utils.auth.me.invalidate();
     },
     onError: (error) => {
-      setLoginError(error.message);
+      setError(error.message);
+    },
+  });
+
+  const registerMutation = trpc.auth.register.useMutation({
+    onSuccess: async () => {
+      setError(null);
+      await utils.auth.me.invalidate();
+    },
+    onError: (error) => {
+      setError(error.message);
     },
   });
 
@@ -135,14 +155,22 @@ export default function DashboardLayout({
   useEffect(() => {
     if (profilesQuery.isLoading) return;
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
-      if (location !== "/onboarding") {
-        setLocation("/onboarding");
+      const onboardingPath = appPath("/onboarding");
+      if (location !== onboardingPath) {
+        setLocation(onboardingPath);
       }
       return;
     }
     if (activeProfileId) return;
     const defaultProfile =
-      profiles.find((profile) => profile.name === "Clínica Padrão") ?? profiles[0];
+      profiles.find((profile) =>
+        [
+          "Clínica Padrão",
+          "Clinica Padrao",
+          "Equipe Padrão",
+          "Equipe Padrao",
+        ].includes(profile.name)
+      ) ?? profiles[0];
     if (!defaultProfile) return;
     setActiveProfileId(defaultProfile.id);
   }, [activeProfileId, profiles, profilesQuery.isLoading, profilesQuery.isSuccess, setActiveProfileId, user, location, setLocation]);
@@ -153,34 +181,41 @@ export default function DashboardLayout({
   }
 
   if (!user) {
-    const loginUrl = getLoginUrl();
     const oauthConfigured = isOAuthConfigured();
 
-    const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      setLoginError(null);
+      setError(null);
       try {
-        await localLoginMutation.mutateAsync({
-          username,
-          password,
-        });
+        if (isRegistering) {
+          await registerMutation.mutateAsync({
+            name,
+            email,
+            password,
+          });
+        } else {
+          await loginMutation.mutateAsync({
+            email,
+            password,
+          });
+        }
       } catch {
-        // Error state is already handled by the mutation callback.
+        // Error state handled by mutation
       }
     };
 
     return (
       <div className="app-login-screen flex min-h-screen items-center justify-center px-4 py-10 text-foreground">
         <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="app-showcase-card hidden lg:flex rounded-3xl text-white p-10 flex-col justify-end relative overflow-hidden">
+          <div className="app-showcase-card hidden lg:flex rounded-3xl bg-premium-gradient text-white p-10 flex-col justify-end relative overflow-hidden shadow-xl">
             <div className="relative z-10 space-y-6">
               <AppBrand className="text-white" />
               <div className="space-y-3">
-                <h2 className="text-4xl font-bold leading-tight text-white mb-4">
-                  Gestão completa das suas escalas médicas
+                <h2 className="mb-4 text-4xl font-bold leading-tight text-white">
+                  Gestão completa das escalas da sua equipe
                 </h2>
                 <p className="max-w-xl text-base leading-6 text-white/80">
-                  Organize plantões, gerencie sua equipe de onde estiver e não dependa mais de planilhas e grupos confusos no WhatsApp. Tudo automatizado para sua paz de espírito.
+                  Organize plantões, gerencie sua equipe de onde estiver e não dependa mais de planilhas ou grupos confusos no WhatsApp. Tudo automatizado para a sua operação.
                 </p>
               </div>
               <div className="grid gap-3 pt-4 md:grid-cols-3">
@@ -196,8 +231,8 @@ export default function DashboardLayout({
               </div>
             </div>
             {/* abstract background elements */}
-            <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl rounded-full" />
-            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl rounded-full" />
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl opacity-50" />
+            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl opacity-50" />
           </div>
 
           <div className="app-login-card bg-background w-full rounded-[2rem] border p-8 shadow-xl flex flex-col justify-center">
@@ -205,67 +240,121 @@ export default function DashboardLayout({
               <AppBrand compact />
               <div className="space-y-2 lg:mt-4">
                 <h2 className="text-3xl font-bold leading-none text-foreground tracking-tight">
-                  Bem-vindo de volta
+                  {isRegistering ? "Crie sua conta" : "Bem-vindo de volta"}
                 </h2>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  Entre com suas credenciais para visualizar sua escala.
+                  {isRegistering
+                    ? "Comece a organizar suas escalas agora mesmo."
+                    : "Entre com suas credenciais para visualizar sua escala."}
                 </p>
               </div>
             </div>
 
-            <form className="space-y-4" onSubmit={handleLogin}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              {isRegistering && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="name">
+                    Nome completo
+                  </label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Seu nome"
+                    className="h-12 border-slate-200 focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all font-sans"
+                    required
+                  />
+                </div>
+              )}
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="username">
-                  Login
+                <label className="text-sm font-medium" htmlFor="email">
+                  E-mail institucional
                 </label>
                 <Input
-                  id="username"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  autoComplete="username"
-                  placeholder="Seu login"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="exemplo@hospital.com"
+                  className="h-12 border-slate-200 focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="password">
-                  Senha
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium" htmlFor="password">
+                    Senha
+                  </label>
+                  <a href="#" className="text-xs text-[#14B8A6] hover:underline">Esqueci minha senha</a>
+                </div>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
-                  placeholder="Sua senha"
+                  placeholder="••••••••"
+                  className="h-12 border-slate-200 focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all"
                 />
               </div>
-              {loginError ? (
-                <p className="text-sm text-destructive">{loginError}</p>
+              {error ? (
+                <p className="text-sm text-destructive">{error}</p>
               ) : null}
               <Button
                 type="submit"
                 size="lg"
-                className="w-full"
-                disabled={localLoginMutation.isPending}
+                className="w-full h-12 bg-[#14B8A6] hover:bg-[#0D9488] shadow-md shadow-[#14B8A6]/20 transition-all font-semibold"
+                disabled={loginMutation.isPending || registerMutation.isPending}
               >
-                {localLoginMutation.isPending ? "Entrando..." : "Entrar"}
+                {loginMutation.isPending || registerMutation.isPending
+                  ? "Processando..."
+                  : isRegistering
+                    ? "Criar minha conta"
+                    : "Entrar no sistema"}
               </Button>
             </form>
 
-            {oauthConfigured && loginUrl ? (
-              <div className="mt-6 border-t border-black/10 pt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    window.location.href = loginUrl;
-                  }}
-                >
-                  Entrar com OAuth
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setError(null);
+                }}
+                className="text-sm text-[#14B8A6] hover:underline"
+              >
+                {isRegistering
+                  ? "Já tem uma conta? Entre aqui"
+                  : "Não tem uma conta? Cadastre-se grátis"}
+              </button>
+            </div>
+
+            <div className="mt-8 space-y-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase tracking-widest">
+                  <span className="bg-background px-4 text-muted-foreground font-medium">Ou conecte-se com</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" className="h-12 border-slate-200 hover:bg-slate-50 transition-colors group" asChild>
+                  <a href={getLoginUrl({ type: "signUp" }) ?? getSalesContactUrl() ?? "#"}>
+                    <svg className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" aria-hidden="true" focusable="false" role="img" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
+                    Google
+                  </a>
+                </Button>
+                <Button variant="outline" className="h-12 border-slate-200 hover:bg-slate-50 transition-colors group" asChild>
+                  <a href={getLoginUrl({ type: "signUp" }) ?? getSalesContactUrl() ?? "#"}>
+                    <svg className="mr-2 h-4 w-4 text-[#1877F2] transition-transform group-hover:scale-110" aria-hidden="true" focusable="false" role="img" viewBox="0 0 320 512"><path fill="currentColor" d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"></path></svg>
+                    Facebook
+                  </a>
                 </Button>
               </div>
-            ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -324,7 +413,15 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find((item) => item.path === location);
+  
+  const allMenuItems = useMemo(() => [
+    ...menuItems,
+    ...(user?.role === 'staff' || user?.role === 'admin' 
+      ? [{ icon: Shield, label: "Painel Admin", path: appPath("/admin") }] 
+      : [])
+  ], [user?.role]);
+
+  const activeMenuItem = allMenuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -388,7 +485,7 @@ function DashboardLayoutContent({
                         <div className="min-w-0">
                           <AppBrand compact hideSubtitle />
                           <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
-                            Escala ativa
+                            Equipe ativa
                           </p>
                           <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
                             {activeProfileName}
@@ -411,7 +508,7 @@ function DashboardLayoutContent({
                               </p>
                               <p className="truncate text-xs text-muted-foreground">
                                 {profile.description?.trim() ||
-                                  "Escala medica separada"}
+                                  "Equipe/setor independente"}
                               </p>
                             </div>
                             {profile.id === activeProfileId ? (
@@ -422,12 +519,32 @@ function DashboardLayoutContent({
                       ))}
                       <DropdownMenuItem
                         onClick={() => {
-                          refreshProfiles();
-                          setLocation("/settings");
+                          const canAdd = (user?.maxProfiles ?? 0) > (profiles.length ?? 0);
+                          if (canAdd) {
+                            setLocation(appPath("/onboarding"));
+                          } else {
+                            setLocation(appPath("/upgrade"));
+                          }
                         }}
-                        className="cursor-pointer"
+                        className="cursor-pointer text-primary bg-primary/5 hover:bg-primary/10 font-semibold"
                       >
-                        Gerenciar escalas
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar nova unidade
+                        {user && (
+                          <span className="ml-auto text-[10px] bg-primary/10 px-1.5 py-0.5 rounded text-primary/70">
+                            {profiles.length}/{user.maxProfiles}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          refreshProfiles();
+                          setLocation(appPath("/settings"));
+                        }}
+                        className="cursor-pointer border-t mt-1"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Gerenciar licenças
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -438,7 +555,7 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map((item) => {
+              {allMenuItems.map((item) => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -505,7 +622,23 @@ function DashboardLayoutContent({
         />
       </div>
 
-      <SidebarInset className="app-main-shell overflow-hidden bg-background">
+      <SidebarInset className="app-main-shell overflow-hidden bg-background flex flex-col">
+        {user && !user.isPaid && (
+          <div className="bg-amber-500/10 text-amber-600 px-4 py-2 text-sm flex items-center justify-between border-b border-amber-500/20 shrink-0">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              <span>Você está na <strong>Versão de Teste</strong>. Algumas funcionalidades estão limitadas.</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-700"
+              onClick={() => setLocation(appPath("/upgrade"))}
+            >
+              Fazer Upgrade
+            </Button>
+          </div>
+        )}
         {isMobile && (
           <div className="app-mobile-header supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40 flex h-14 items-center justify-between border-b px-2 backdrop-blur">
             <div className="flex items-center gap-2">

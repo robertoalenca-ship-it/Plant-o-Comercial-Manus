@@ -19,11 +19,17 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  isEmailVerified: boolean("isEmailVerified").default(false).notNull(),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "coordinator", "viewer"]).default("viewer").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "coordinator", "viewer", "staff"]).default("viewer").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  maxProfiles: int("maxProfiles").default(1).notNull(),
+  isPaid: boolean("isPaid").default(false).notNull(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }),
+  subscriptionStatus: varchar("subscriptionStatus", { length: 64 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -42,6 +48,19 @@ export const localUserCredentials = mysqlTable("local_user_credentials", {
 export type LocalUserCredential = typeof localUserCredentials.$inferSelect;
 export type InsertLocalUserCredential =
   typeof localUserCredentials.$inferInsert;
+
+export const authTokens = mysqlTable("auth_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  type: mysqlEnum("type", ["email_verification", "password_reset"]).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AuthToken = typeof authTokens.$inferSelect;
+export type InsertAuthToken = typeof authTokens.$inferInsert;
 
 export const scheduleProfiles = mysqlTable("schedule_profiles", {
   id: int("id").autoincrement().primaryKey(),
@@ -106,6 +125,7 @@ export const doctors = mysqlTable("doctors", {
   limiteFdsMes: int("limiteFdsMes").default(0),
   // Configurações
   prioridade: mysqlEnum("prioridade", ["baixa", "media", "alta"]).default("media").notNull(),
+  specialty: varchar("specialty", { length: 128 }),
   cor: varchar("cor", { length: 16 }).default("#3B82F6").notNull(),
   observacoes: text("observacoes"),
   ativo: boolean("ativo").default(true).notNull(),
@@ -233,6 +253,7 @@ export const scheduleEntries = mysqlTable("schedule_entries", {
   isFixed: boolean("isFixed").default(false).notNull(),
   isManualOverride: boolean("isManualOverride").default(false).notNull(),
   isLocked: boolean("isLocked").default(false).notNull(),
+  confirmationStatus: mysqlEnum("confirmationStatus", ["pending", "confirmed", "adjustment_requested"]).default("pending").notNull(),
   conflictWarning: text("conflictWarning"),
   overrideJustification: text("overrideJustification"),
   notes: text("notes"),
