@@ -41,13 +41,30 @@ export default function Onboarding() {
   const createProfileMutation = trpc.scheduleProfiles.create.useMutation({
     onSuccess: (createdProfile) => {
       toast.success("Equipe criada com sucesso!");
-      
+
       if (createdProfile?.id) {
         setActiveProfileId(createdProfile.id);
       }
-      
-      // Invalida em background e navega imediatamente
-      utils.scheduleProfiles.list.invalidate();
+
+      utils.scheduleProfiles.list.setData(undefined, (currentProfiles) => {
+        if (!createdProfile) {
+          return currentProfiles ?? [];
+        }
+
+        const profiles = currentProfiles ?? [];
+        const alreadyExists = profiles.some(
+          (profile) => profile.id === createdProfile.id
+        );
+
+        if (alreadyExists) {
+          return profiles;
+        }
+
+        return [...profiles, createdProfile];
+      });
+
+      // Mantem o cache sincronizado em background e navega imediatamente
+      void utils.scheduleProfiles.list.invalidate();
       setLocation(appPath(), { replace: true });
     },
     onError: (error) => {

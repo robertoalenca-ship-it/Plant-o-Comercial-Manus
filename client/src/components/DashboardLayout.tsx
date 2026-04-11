@@ -77,6 +77,43 @@ const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
+function normalizeAuthErrorMessage(rawMessage: string) {
+  if (!rawMessage) {
+    return "Não foi possível concluir a autenticação.";
+  }
+
+  try {
+    const parsed = JSON.parse(rawMessage);
+    const firstIssue = Array.isArray(parsed) ? parsed[0] : null;
+
+    if (firstIssue && typeof firstIssue === "object") {
+      const path = Array.isArray(firstIssue.path)
+        ? String(firstIssue.path[0] ?? "")
+        : "";
+      const message =
+        typeof firstIssue.message === "string" ? firstIssue.message : rawMessage;
+
+      if (path === "email") {
+        return "Informe um e-mail válido.";
+      }
+
+      if (path === "password") {
+        return "Informe sua senha para continuar.";
+      }
+
+      if (path === "name") {
+        return "Informe seu nome completo.";
+      }
+
+      return message;
+    }
+  } catch {
+    // Preserve non-JSON error messages.
+  }
+
+  return rawMessage;
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -102,7 +139,7 @@ export default function DashboardLayout({
       await utils.auth.me.invalidate();
     },
     onError: (error) => {
-      setError(error.message);
+      setError(normalizeAuthErrorMessage(error.message));
     },
   });
 
@@ -112,7 +149,7 @@ export default function DashboardLayout({
       await utils.auth.me.invalidate();
     },
     onError: (error) => {
-      setError(error.message);
+      setError(normalizeAuthErrorMessage(error.message));
     },
   });
 
