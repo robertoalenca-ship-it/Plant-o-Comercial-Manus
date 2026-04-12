@@ -114,13 +114,17 @@ function LegacyRouteRedirect({ to }: { to: string }) {
 
 function Router() {
   const [location, setLocation] = useLocation();
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
-      setLocation(appPath());
+      if (user?.role === "staff") {
+        setLocation(STAFF_HOME_PATH);
+      } else {
+        setLocation(appPath());
+      }
     }
-  }, [location, loading, isAuthenticated, setLocation]);
+  }, [location, loading, isAuthenticated, user?.role, setLocation]);
 
   const legacyTarget = LEGACY_APP_ROUTE_REDIRECTS[location];
 

@@ -204,6 +204,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (profilesQuery.isLoading) return;
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
+      if (user.role === "staff" || user.role === "admin") return;
       const onboardingPath = appPath("/onboarding");
       if (location !== onboardingPath) {
         setLocation(onboardingPath);

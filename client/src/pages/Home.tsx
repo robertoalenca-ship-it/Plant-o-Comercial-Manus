@@ -147,10 +147,10 @@ const faqs = [
 ];
 
 export default function Home() {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
 
-  const appEntryUrl = appPath();
+  const appEntryUrl = user?.role === "staff" ? STAFF_HOME_PATH : appPath();
 
   // Redirect if authenticated
   if (!loading && isAuthenticated) {
