@@ -22,7 +22,7 @@ import {
 import { getLoginUrl, getSalesContactUrl } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
-import { appPath, STAFF_HOME_PATH } from "@/lib/appRoutes";
+import { appPath, STAFF_HOME_PATH, isStaffRoute } from "@/lib/appRoutes";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -457,18 +457,24 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const allMenuItems = useMemo(() => {
-    // Debug log para verificar o papel do usuário no console se necessário
-    if (user) {
-      console.log(`[Sidebar] User: ${user.email}, Role: ${user.role}`);
-    }
+    const isStaff = isStaffRoute(location);
 
-    return menuItems.filter(item => {
-      // Se não tem restrição de roles, todos veem
-      if (!item.roles) return true;
-      // Se tem restrição, verifica se o role do usuário bate
-      return user && item.roles.includes(user.role);
+    return menuItems.filter((item) => {
+      const isSaaSItem =
+        item.roles?.includes("staff") || item.path === STAFF_HOME_PATH;
+
+      // No modo Master (SaaS), mostrar apenas ferramentas Master
+      if (isStaff) {
+        return isSaaSItem;
+      }
+
+      // No modo Clínico (App), esconder ferramentas Master
+      if (isSaaSItem) return false;
+
+      // Só mostra ferramentas operacionais se tiver uma clínica selecionada (activeProfileId)
+      return !!activeProfileId || item.path === appPath("/onboarding");
     });
-  }, [user?.role]);
+  }, [user?.role, location, activeProfileId]);
 
   const activeMenuItem = allMenuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
