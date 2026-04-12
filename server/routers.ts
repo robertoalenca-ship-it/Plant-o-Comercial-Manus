@@ -249,9 +249,6 @@ const adminRouter = router({
     return listUsersByProfile(ctx.scheduleProfileId);
   }),
 });
-      return { success: true };
-    }),
-});
 
 const paymentsRouter = router({
   createCheckoutSession: protectedProcedure
