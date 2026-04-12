@@ -78,6 +78,10 @@ type DoctorForm = {
   limiteFdsMes: number;
   prioridade: "baixa" | "media" | "alta";
   cor: string;
+  crmNumber: string;
+  crmState: string;
+  email: string;
+  phone: string;
   observacoes: string;
 };
 
@@ -110,6 +114,10 @@ const defaultForm: DoctorForm = {
   limiteFdsMes: 0,
   prioridade: "media",
   cor: "#14b8a6",
+  crmNumber: "",
+  crmState: "",
+  email: "",
+  phone: "",
   observacoes: "",
 };
 
@@ -234,6 +242,10 @@ export default function Doctors() {
       limiteFdsMes: doctor.limiteFdsMes ?? 0,
       prioridade: doctor.prioridade as DoctorForm["prioridade"],
       cor: doctor.cor,
+      crmNumber: (doctor as any).crmNumber ?? "",
+      crmState: (doctor as any).crmState ?? "",
+      email: (doctor as any).email ?? "",
+      phone: (doctor as any).phone ?? "",
       observacoes: doctor.observacoes ?? "",
     });
     setModalOpen(true);
@@ -485,6 +497,11 @@ export default function Doctors() {
                         <Stethoscope className="h-3 w-3" />
                         {(doctor as any).specialty || "Clínico Geral"}
                       </span>
+                      {(doctor as any).crmNumber && (
+                        <span className="flex items-center gap-1 border-l pl-3 border-border/60">
+                          CRM: {(doctor as any).crmNumber} / {(doctor as any).crmState}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Badge variant="outline" className="text-[9px] py-0 border-slate-200 dark:border-slate-800">
                            ID: {String(doctor.id).padStart(4, '0')}
@@ -570,10 +587,11 @@ export default function Doctors() {
           <div className="p-1">
             <Tabs defaultValue="basic">
               <div className="px-6 pt-4">
-                <TabsList className="grid w-full grid-cols-3 bg-slate-100 dark:bg-slate-900 overflow-hidden rounded-xl h-10">
-                  <TabsTrigger value="basic" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Identificação</TabsTrigger>
-                  <TabsTrigger value="availability" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Jornada</TabsTrigger>
-                  <TabsTrigger value="limits" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Parâmetros</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-4 bg-slate-100 dark:bg-slate-900 overflow-hidden rounded-xl h-10">
+                  <TabsTrigger value="basic" className="text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">ID</TabsTrigger>
+                  <TabsTrigger value="contact" className="text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Contato</TabsTrigger>
+                  <TabsTrigger value="availability" className="text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Jornada</TabsTrigger>
+                  <TabsTrigger value="limits" className="text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm">Regras</TabsTrigger>
                 </TabsList>
               </div>
 
@@ -597,6 +615,31 @@ export default function Doctors() {
                         placeholder="Ex: J. Silva"
                         className="bg-slate-50/50 dark:bg-slate-900/40"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Número do CRM</Label>
+                      <Input
+                        value={form.crmNumber}
+                        onChange={event => set("crmNumber", event.target.value)}
+                        placeholder="Ex: 123456"
+                        className="bg-slate-50/50 dark:bg-slate-900/40"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">UF do CRM</Label>
+                      <Select
+                        value={form.crmState}
+                        onValueChange={value => set("crmState", value)}
+                      >
+                        <SelectTrigger className="bg-slate-50/50 dark:bg-slate-900/40">
+                          <SelectValue placeholder="UF" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"].map(uf => (
+                            <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Especialidade</Label>
@@ -678,6 +721,35 @@ export default function Doctors() {
                       className="bg-slate-50/50 dark:bg-slate-900/40 resize-none"
                       placeholder="Notas sobre convênios, CRM ou restrições específicas..."
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="contact" className="mt-0 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">E-mail</Label>
+                      <Input
+                        type="email"
+                        value={form.email}
+                        onChange={event => set("email", event.target.value)}
+                        placeholder="Ex: joao@email.com"
+                        className="bg-slate-50/50 dark:bg-slate-900/40"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Telefone / WhatsApp</Label>
+                      <Input
+                        value={form.phone}
+                        onChange={event => set("phone", event.target.value)}
+                        placeholder="Ex: (71) 99999-9999"
+                        className="bg-slate-50/50 dark:bg-slate-900/40"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 rounded-2xl">
+                    <p className="text-xs text-teal-700 dark:text-teal-400 leading-relaxed font-medium">
+                      Estes dados de contato serão utilizados para o envio automático de escalas e notificações de plantão via WhatsApp e E-mail.
+                    </p>
                   </div>
                 </TabsContent>
 

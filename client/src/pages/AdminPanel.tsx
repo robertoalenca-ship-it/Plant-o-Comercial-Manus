@@ -17,29 +17,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { Check, Search, Shield, User, X, Zap } from "lucide-react";
+import { Search, Users, Shield, User as UserIcon } from "lucide-react";
 
 export default function AdminPanel() {
   const [search, setSearch] = useState("");
-  const { data: users, refetch } = trpc.admin.listUsers.useQuery();
-  const activateMutation = trpc.admin.manualActivate.useMutation({
-    onSuccess: () => {
-      toast.success("Licença atualizada com sucesso");
-      refetch();
-    },
-    onError: (err) => {
-      toast.error(`Erro ao atualizar: ${err.message}`);
-    },
-  });
+  const { data: users, isLoading } = trpc.admin.listTeamMembers.useQuery();
 
   const filteredUsers = users?.filter(
     (u) =>
@@ -47,37 +29,12 @@ export default function AdminPanel() {
       u.name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleTogglePaid = (userId: number, currentPaid: boolean, maxProfiles: number) => {
-    activateMutation.mutate({
-      userId,
-      isPaid: !currentPaid,
-      maxProfiles: maxProfiles,
-    });
-  };
-
-  const handleChangeProfiles = (userId: number, isPaid: boolean, newMax: number) => {
-    activateMutation.mutate({
-      userId,
-      isPaid,
-      maxProfiles: newMax,
-    });
-  };
-
-  const handleChangeRole = (userId: number, isPaid: boolean, maxProfiles: number, newRole: any) => {
-    activateMutation.mutate({
-      userId,
-      isPaid,
-      maxProfiles,
-      role: newRole,
-    });
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Gerencie licenças e permissões dos usuários.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Equipe da Unidade</h1>
+          <p className="text-muted-foreground">Gerencie quem tem acesso e permissões nesta escala.</p>
         </div>
         <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm">
           <Search className="h-4 w-4 text-muted-foreground ml-2" />
@@ -94,20 +51,12 @@ export default function AdminPanel() {
         <CardHeader className="bg-muted/30 pb-4">
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Usuários Registrados</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> Membros Ativos
+              </CardTitle>
               <CardDescription>
-                {filteredUsers?.length ?? 0} usuários encontrados no sistema.
+                {filteredUsers?.length ?? 0} pessoas com acesso a esta unidade.
               </CardDescription>
-            </div>
-            <div className="flex gap-4">
-               <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase font-semibold">Total Pago</p>
-                  <p className="text-xl font-bold text-primary">{users?.filter(u => u.isPaid).length ?? 0}</p>
-               </div>
-               <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase font-semibold">Admin/Staff</p>
-                  <p className="text-xl font-bold text-amber-600">{users?.filter(u => ['admin', 'staff'].includes(u.role)).length ?? 0}</p>
-               </div>
             </div>
           </div>
         </CardHeader>
@@ -115,99 +64,85 @@ export default function AdminPanel() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="w-[250px]">Usuário</TableHead>
-                <TableHead>Função</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Licenças (Unidades)</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="w-[300px]">Usuário</TableHead>
+                <TableHead>Nível de Acesso</TableHead>
+                <TableHead>Status da Conta</TableHead>
+                <TableHead className="text-right">Último Acesso</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers?.map((u) => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                    Carregando membros...
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers?.map((u) => (
                 <TableRow key={u.userId} className="hover:bg-muted/30 transition-colors">
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-foreground">{u.name || "Sem Nome"}</span>
-                      <span className="text-xs text-muted-foreground">{u.email}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground">{u.name || "Sem Nome"}</span>
+                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={u.role}
-                      onValueChange={(val) => handleChangeRole(u.userId, u.isPaid, u.maxProfiles, val)}
-                    >
-                      <SelectTrigger className="w-[130px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Usuário</SelectItem>
-                        <SelectItem value="coordinator">Coordenador</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      {['admin', 'staff'].includes(u.role) ? (
+                        <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                          <Shield className="h-3 w-3 mr-1" /> {u.role === 'staff' ? 'SaaS Owner' : 'Clinic Admin'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="capitalize">
+                          {u.role}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    {u.isPaid ? (
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                        <Check className="h-3 w-3 mr-1" /> Premium
+                    {u.active ? (
+                      <Badge className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200">
+                        Ativa
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground border-dashed">
-                        Trial
-                      </Badge>
+                      <Badge variant="destructive">Desativada</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                     <div className="flex items-center gap-2">
-                        <Select
-                          value={String(u.maxProfiles)}
-                          onValueChange={(val) => handleChangeProfiles(u.userId, u.isPaid, Number(val))}
-                        >
-                          <SelectTrigger className="w-[70px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1</SelectItem>
-                            <SelectItem value="3">3</SelectItem>
-                            <SelectItem value="5">5</SelectItem>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="999">∞</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <span className="text-xs text-muted-foreground">unidades</span>
-                     </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant={u.isPaid ? "outline" : "default"}
-                      size="sm"
-                      className={!u.isPaid ? "bg-amber-500 hover:bg-amber-600 border-none h-8 px-3" : "h-8 px-3"}
-                      onClick={() => handleTogglePaid(u.userId, u.isPaid, u.maxProfiles)}
-                      disabled={activateMutation.isPending}
-                    >
-                      {u.isPaid ? (
-                        <>
-                          <X className="h-3 w-3 mr-1" /> Revogar
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-3 w-3 mr-1 fill-white" /> Ativar Licença
-                        </>
-                      )}
-                    </Button>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleString('pt-BR') : "Nunca"}
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredUsers?.length === 0 && (
+              {filteredUsers?.length === 0 && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    Nenhum usuário encontrado para "{search}"
+                  <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                    Nenhum membro encontrado para "{search}"
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+      
+      <Card className="bg-primary/5 border-primary/10">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Zap className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-primary">Precisa adicionar novos membros?</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para convidar novos médicos ou coordenadores para esta unidade, utilize o menu de <strong>Configurações</strong>
+                ou entre em contato com o suporte do sistema.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

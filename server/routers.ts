@@ -1,4 +1,8 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes,
+  getNotificationHealth,
+  getGlobalStats,
+  listAllProfiles,
+  listUsersByProfile } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
@@ -156,6 +160,10 @@ const doctorSchema = z.object({
   prioridade: z.enum(["baixa", "media", "alta"]).optional(),
   cor: z.string().optional(),
   observacoes: z.string().optional(),
+  crmNumber: z.string().optional().nullable(),
+  crmState: z.string().max(2).optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  phone: z.string().optional().nullable(),
 });
 
 const scheduleProfileSchema = z.object({
@@ -201,7 +209,16 @@ async function requireScheduleInProfile(profileId: number, scheduleId: number) {
   return schedule;
 }
 
-const adminRouter = router({
+const saasAdminRouter = router({
+  getStats: staffProcedure.query(async () => {
+    return getGlobalStats();
+  }),
+  getNotificationHealth: staffProcedure.query(async () => {
+    return getNotificationHealth();
+  }),
+  listProfiles: staffProcedure.query(async () => {
+    return listAllProfiles();
+  }),
   listUsers: staffProcedure.query(async () => {
     return listManagedLocalUsers();
   }),
@@ -220,6 +237,18 @@ const adminRouter = router({
         maxProfiles: input.maxProfiles,
         role: input.role,
       });
+      return { success: true };
+    }),
+});
+
+/**
+ * Client-side administration for a specific team/hospital
+ */
+const adminRouter = router({
+  listTeamMembers: managerProfileProcedure.query(async ({ ctx }) => {
+    return listUsersByProfile(ctx.scheduleProfileId);
+  }),
+});
       return { success: true };
     }),
 });
@@ -556,6 +585,7 @@ const swapRequestsRouter = router({
 
 export const appRouter = router({
   admin: adminRouter,
+  saasAdmin: saasAdminRouter,
   payments: paymentsRouter,
   swapRequests: swapRequestsRouter,
   system: systemRouter,

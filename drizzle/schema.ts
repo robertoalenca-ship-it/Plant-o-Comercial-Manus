@@ -126,6 +126,10 @@ export const doctors = mysqlTable("doctors", {
   // Configurações
   prioridade: mysqlEnum("prioridade", ["baixa", "media", "alta"]).default("media").notNull(),
   specialty: varchar("specialty", { length: 128 }),
+  crmNumber: varchar("crmNumber", { length: 20 }),
+  crmState: varchar("crmState", { length: 2 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
   cor: varchar("cor", { length: 16 }).default("#3B82F6").notNull(),
   observacoes: text("observacoes"),
   ativo: boolean("ativo").default(true).notNull(),
@@ -140,6 +144,7 @@ export type InsertDoctor = typeof doctors.$inferInsert;
 export const fixedUnavailabilities = mysqlTable("fixed_unavailabilities", {
   id: int("id").autoincrement().primaryKey(),
   profileId: int("profileId").notNull(),
+  userId: int("userId"), // Adicionado para rastrear usuário vinculado se houver
   doctorId: int("doctorId").notNull(),
   // 0=Sunday, 1=Monday, ..., 6=Saturday
   dayOfWeek: tinyint("dayOfWeek").notNull(),

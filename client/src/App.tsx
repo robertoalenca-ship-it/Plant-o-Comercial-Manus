@@ -25,7 +25,11 @@ import {
   LEGACY_APP_ROUTE_REDIRECTS,
   appPath,
   isAppRoute,
+  STAFF_HOME_PATH,
+  staffPath,
+  isStaffRoute,
 } from "./lib/appRoutes";
+import StaffDashboard from "./pages/StaffDashboard";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -82,6 +86,19 @@ function AppShell() {
   );
 }
 
+
+function StaffShell() {
+  return (
+    <DashboardLayout>
+      <Switch>
+        <Route path={STAFF_HOME_PATH} component={StaffDashboard} />
+        <Route path={staffPath("/dashboard")} component={StaffDashboard} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
+  );
+}
+
 function LegacyRouteRedirect({ to }: { to: string }) {
   const [location, setLocation] = useLocation();
 
@@ -116,6 +133,10 @@ function Router() {
 
   if (isAppRoute(location)) {
     return <AppShell />;
+  }
+
+  if (isStaffRoute(location)) {
+    return <StaffShell />;
   }
 
   return <NotFound />;

@@ -2228,6 +2228,104 @@ export async function getAuditLogsForSchedule(
 }
 
 // SaaS Management
+/**
+ * Super Admin: Lists ALL profiles in the system with their primary owners
+ */
+export async function listAllProfiles() {
+  const db = await getDb();
+  if (!db) return getOfflineRuntimeScheduleProfiles();
+
+  const rows = await db
+    .select({
+      profile: scheduleProfiles,
+      owner: users,
+    })
+    .from(scheduleProfiles)
+    .leftJoin(userProfiles, and(
+      eq(scheduleProfiles.id, userProfiles.profileId),
+      eq(userProfiles.role, "owner")
+    ))
+    .leftJoin(users, eq(userProfiles.userId, users.id))
+    .where(eq(scheduleProfiles.active, true));
+
+  return rows.map(row => ({
+    ...row.profile,
+    ownerName: row.owner?.name ?? "Sem proprietario",
+    ownerEmail: row.owner?.email ?? "N/A",
+  }));
+}
+
+/**
+ * Client Admin: Lists all users that have access to a specific profile
+ */
+export async function listUsersByProfile(profileId: number): Promise<ManagedLocalUser[]> {
+  const db = await getDb();
+  if (!db) return listOfflineManagedLocalUsers();
+
+  const rows = await db
+    .select({
+      user: users,
+      credential: localUserCredentials,
+      profileLink: userProfiles,
+    })
+    .from(userProfiles)
+    .innerJoin(users, eq(userProfiles.userId, users.id))
+    .innerJoin(localUserCredentials, eq(users.id, localUserCredentials.userId))
+    .where(eq(userProfiles.profileId, profileId));
+
+  return rows.map(({ user, credential }) =>
+    toManagedLocalUser(user, credential)
+  ).sort(sortManagedLocalUsers);
+}
+
+/**
+ * Super Admin: KPIs for the SaaS Dashboard
+ */
+export async function getGlobalStats() {
+  const db = await getDb();
+  if (!db) {
+    return {
+      totalUsers: offlineRuntimeManagedUsersById.size,
+      totalProfiles: offlineRuntimeScheduleProfilesById.size,
+      totalEntries: Array.from(offlineRuntimeEntriesByScheduleId.values()).flat().length,
+      premiumUsers: Array.from(offlineRuntimeManagedUsersById.values()).filter(u => u.isPaid).length,
+    };
+  }
+
+  const [usersCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
+  const [profilesCount] = await db.select({ count: sql<number>`count(*)` }).from(scheduleProfiles);
+  const [entriesCount] = await db.select({ count: sql<number>`count(*)` }).from(scheduleEntries);
+  const [premiumCount] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isPaid, true));
+
+  return {
+    totalUsers: Number(usersCount?.count ?? 0),
+    totalProfiles: Number(profilesCount?.count ?? 0),
+    totalEntries: Number(entriesCount?.count ?? 0),
+    premiumUsers: Number(premiumCount?.count ?? 0),
+  };
+}
+
+/**
+ * Super Admin: Notification Queue Health
+ */
+export async function getNotificationHealth() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const stats = await db
+    .select({
+      status: notificationDispatches.status,
+      count: sql<number>`count(*)`,
+    })
+    .from(notificationDispatches)
+    .groupBy(notificationDispatches.status);
+
+  return stats.map(s => ({
+    status: s.status,
+    count: Number(s.count),
+  }));
+}
+
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

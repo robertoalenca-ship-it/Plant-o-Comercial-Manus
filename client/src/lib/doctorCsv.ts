@@ -25,6 +25,10 @@ export type DoctorImportRow = {
   limiteFdsMes: number;
   prioridade: DoctorPriority;
   cor: string;
+  crmNumber?: string;
+  crmState?: string;
+  email?: string;
+  phone?: string;
   observacoes: string;
 };
 
@@ -98,6 +102,10 @@ const HEADER_ALIASES = {
     "observação",
     "obs",
   ],
+  crmNumber: ["crm", "crm_numero", "numero_crm"],
+  crmState: ["crm_uf", "crm_estado", "uf_crm", "uf"],
+  email: ["email", "e-mail", "contato_email"],
+  phone: ["telefone", "celular", "whatsapp", "phone", "contato_telefone"],
 } satisfies Record<string, string[]>;
 
 const TRUTHY_VALUES = new Set(["1", "true", "sim", "s", "yes", "y", "x", "ok"]);
@@ -487,6 +495,10 @@ function buildDoctorImportPreview(
         rowErrors
       ),
       cor: parseColor(getCellValue(row, normalizedHeaders, HEADER_ALIASES.cor)),
+      crmNumber: getCellValue(row, normalizedHeaders, HEADER_ALIASES.crmNumber),
+      crmState: getCellValue(row, normalizedHeaders, HEADER_ALIASES.crmState),
+      email: getCellValue(row, normalizedHeaders, HEADER_ALIASES.email),
+      phone: getCellValue(row, normalizedHeaders, HEADER_ALIASES.phone),
       observacoes: getCellValue(
         row,
         normalizedHeaders,
@@ -618,6 +630,10 @@ export function buildDoctorImportTemplateCsv() {
     "limite_fds_mes",
     "prioridade",
     "cor",
+    "crm",
+    "uf",
+    "email",
+    "telefone",
     "observacoes",
   ];
 
@@ -640,6 +656,10 @@ export function buildDoctorImportTemplateCsv() {
       "2",
       "alta",
       "#3B82F6",
+      "12345",
+      "SP",
+      "ana@medica.com",
+      "11999999999",
       "Prefere evitar domingos",
     ],
     [
@@ -660,6 +680,10 @@ export function buildDoctorImportTemplateCsv() {
       "0",
       "media",
       "#10B981",
+      "67890",
+      "RJ",
+      "carlos@medico.com",
+      "21888888888",
       "",
     ],
   ];

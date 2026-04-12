@@ -1,4 +1,5 @@
 export const APP_HOME_PATH = "/app";
+export const STAFF_HOME_PATH = "/staff";
 
 export const appPath = (path = "") => {
   if (!path || path === "/") {
@@ -8,8 +9,19 @@ export const appPath = (path = "") => {
   return `${APP_HOME_PATH}${path.startsWith("/") ? path : `/${path}`}`;
 };
 
+export const staffPath = (path = "") => {
+  if (!path || path === "/") {
+    return STAFF_HOME_PATH;
+  }
+
+  return `${STAFF_HOME_PATH}${path.startsWith("/") ? path : `/${path}`}`;
+};
+
 export const isAppRoute = (path: string) =>
   path === APP_HOME_PATH || path.startsWith(`${APP_HOME_PATH}/`);
+
+export const isStaffRoute = (path: string) =>
+  path === STAFF_HOME_PATH || path.startsWith(`${STAFF_HOME_PATH}/`);
 
 export const LEGACY_APP_ROUTE_REDIRECTS: Record<string, string> = Object.freeze({
   "/onboarding": appPath("/onboarding"),

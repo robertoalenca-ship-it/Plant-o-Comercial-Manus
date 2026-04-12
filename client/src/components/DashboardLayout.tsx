@@ -22,7 +22,7 @@ import {
 import { getLoginUrl, getSalesContactUrl } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
-import { appPath } from "@/lib/appRoutes";
+import { appPath, STAFF_HOME_PATH } from "@/lib/appRoutes";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -443,12 +443,21 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
-  const allMenuItems = useMemo(() => [
-    ...menuItems,
-    ...(user?.role === 'staff' || user?.role === 'admin' 
-      ? [{ icon: Shield, label: "Painel Admin", path: appPath("/admin") }] 
-      : [])
-  ], [user?.role]);
+  const allMenuItems = useMemo(() => {
+    const items = [...menuItems];
+    
+    // Links para Staff (Dono do SaaS)
+    if (user?.role === 'staff') {
+      items.unshift({ icon: Shield, label: "Master Dashboard", path: STAFF_HOME_PATH });
+    }
+
+    // Link para Admin/Staff (Gerenciamento da Equipe local)
+    if (user?.role === 'staff' || user?.role === 'admin') {
+      items.push({ icon: Users, label: "Equipe da Unidade", path: appPath("/admin") });
+    }
+    
+    return items;
+  }, [user?.role]);
 
   const activeMenuItem = allMenuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
