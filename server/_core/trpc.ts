@@ -7,6 +7,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { hasProfileAccess } from "../db";
 import type { TrpcContext } from "./context";
+import type { User } from "../../drizzle/schema";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -25,7 +26,7 @@ const requireUser = t.middleware(async opts => {
   return next({
     ctx: {
       ...ctx,
-      user: ctx.user,
+      user: ctx.user as User,
     },
   });
 });
@@ -55,7 +56,8 @@ const requireScheduleProfile = t.middleware(async (opts) => {
   return next({
     ctx: {
       ...ctx,
-      scheduleProfileId: ctx.scheduleProfileId,
+      user: ctx.user as User,
+      scheduleProfileId: ctx.scheduleProfileId as number,
     },
   });
 });
@@ -73,7 +75,7 @@ export const managerProcedure = t.procedure.use(
     return next({
       ctx: {
         ...ctx,
-        user: ctx.user,
+        user: ctx.user as User,
       },
     });
   }),
@@ -94,7 +96,7 @@ export const adminProcedure = t.procedure.use(
     return next({
       ctx: {
         ...ctx,
-        user: ctx.user,
+        user: ctx.user as User,
       },
     });
   }),
@@ -114,7 +116,7 @@ export const staffProcedure = t.procedure.use(
     return next({
       ctx: {
         ...ctx,
-        user: ctx.user,
+        user: ctx.user as User,
       },
     });
   })
