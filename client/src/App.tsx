@@ -115,6 +115,7 @@ function LegacyRouteRedirect({ to }: { to: string }) {
 function Router() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, loading } = useAuth();
+  const { activeProfileId } = useScheduleProfile();
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
@@ -142,6 +143,21 @@ function Router() {
 
   if (location === "/invite-accept") {
     return <InviteAccept />;
+  }
+
+  // REDIRECT GUARDS FOR MASTER (STAFF)
+  if (user?.role === "staff") {
+    // If staff tries to access onboarding, block and redirect to staff panel
+    if (location === appPath("/onboarding")) {
+      setLocation(STAFF_HOME_PATH);
+      return null;
+    }
+
+    // If staff tries to access ANY app route without a specific profile, force redirect to staff panel
+    if (isAppRoute(location) && !activeProfileId && location !== appPath("/onboarding")) {
+      setLocation(STAFF_HOME_PATH);
+      return null;
+    }
   }
 
   if (isAppRoute(location)) {

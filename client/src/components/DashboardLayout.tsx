@@ -406,7 +406,7 @@ export default function DashboardLayout({
     );
   }
 
-  if (!activeProfile) {
+  if (!activeProfile && !isStaffRoute(location)) {
     return <DashboardLayoutSkeleton />;
   }
 
@@ -420,8 +420,8 @@ export default function DashboardLayout({
       }
     >
       <DashboardLayoutContent
-        activeProfileName={activeProfile.name}
-        activeProfileId={activeProfile.id}
+        activeProfileName={activeProfile?.name ?? ""}
+        activeProfileId={activeProfile?.id ?? 0}
         profiles={profiles}
         onSelectProfile={setActiveProfileId}
         refreshProfiles={() => profilesQuery.refetch()}
@@ -527,87 +527,96 @@ function DashboardLayoutContent({
           disableTransition={isResizing}
         >
           <SidebarHeader className="border-b border-white/8 px-2 py-3">
-            <div className="flex w-full items-start gap-3 transition-all">
-              <button
-                onClick={toggleSidebar}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Toggle navigation"
-              >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
-              </button>
-              {!isCollapsed ? (
-                <div className="min-w-0 flex-1">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex w-full items-start justify-between rounded-xl border border-border/50 bg-accent/20 px-3 py-3 text-left transition-colors hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <div className="min-w-0">
-                          <AppBrand compact hideSubtitle />
-                          <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
-                            Equipe ativa
-                          </p>
-                          <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-                            {activeProfileName}
-                          </p>
-                        </div>
-                        <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-foreground/65" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64">
-                      {profiles.map((profile) => (
-                        <DropdownMenuItem
-                          key={profile.id}
-                          onClick={() => onSelectProfile(profile.id)}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {profile.name}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {profile.description?.trim() ||
-                                  "Equipe/setor independente"}
-                              </p>
-                            </div>
-                            {profile.id === activeProfileId ? (
-                              <span className="text-xs text-primary">Ativa</span>
-                            ) : null}
+            <div className="flex w-full flex-col gap-3 transition-all">
+              <div className="flex w-full items-start gap-3">
+                <button
+                  onClick={toggleSidebar}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Toggle navigation"
+                >
+                  <PanelLeft className="h-4 w-4 text-muted-foreground" />
+                </button>
+                {!isCollapsed && (
+                  <div className="min-w-0 flex-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex w-full items-start justify-between rounded-xl border border-border/50 bg-accent/20 px-3 py-3 text-left transition-colors hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <div className="min-w-0">
+                            <AppBrand compact hideSubtitle />
+                            <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
+                              Equipe ativa
+                            </p>
+                            <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+                              {activeProfileName || "Nenhuma selecionada"}
+                            </p>
                           </div>
+                          <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-foreground/65" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-64">
+                        {profiles.map((profile) => (
+                          <DropdownMenuItem
+                            key={profile.id}
+                            onClick={() => onSelectProfile(profile.id)}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {profile.name}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {profile.description?.trim() ||
+                                    "Equipe/setor independente"}
+                                </p>
+                              </div>
+                              {profile.id === activeProfileId ? (
+                                <span className="text-xs text-primary">Ativa</span>
+                              ) : null}
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const canAdd = (user?.maxProfiles ?? 0) > (profiles.length ?? 0);
+                            if (canAdd) {
+                              setLocation(appPath("/onboarding"));
+                            } else {
+                              setLocation(appPath("/upgrade"));
+                            }
+                          }}
+                          className="cursor-pointer text-primary bg-primary/5 hover:bg-primary/10 font-semibold"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Adicionar nova unidade
+                          {user && (
+                            <span className="ml-auto text-[10px] bg-primary/10 px-1.5 py-0.5 rounded text-primary/70">
+                              {profiles.length}/{user.maxProfiles}
+                            </span>
+                          )}
                         </DropdownMenuItem>
-                      ))}
-                      <DropdownMenuItem
-                        onClick={() => {
-                          const canAdd = (user?.maxProfiles ?? 0) > (profiles.length ?? 0);
-                          if (canAdd) {
-                            setLocation(appPath("/onboarding"));
-                          } else {
-                            setLocation(appPath("/upgrade"));
-                          }
-                        }}
-                        className="cursor-pointer text-primary bg-primary/5 hover:bg-primary/10 font-semibold"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Adicionar nova unidade
-                        {user && (
-                          <span className="ml-auto text-[10px] bg-primary/10 px-1.5 py-0.5 rounded text-primary/70">
-                            {profiles.length}/{user.maxProfiles}
-                          </span>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          refreshProfiles();
-                          setLocation(appPath("/settings"));
-                        }}
-                        className="cursor-pointer border-t mt-1"
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        Gerenciar licenças
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            refreshProfiles();
+                            setLocation(appPath("/settings"));
+                          }}
+                          className="cursor-pointer border-t mt-1"
+                        >
+                          <Settings className="mr-2 h-4 w-4" />
+                          Gerenciar licenças
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </div>
+              
+              {!isCollapsed && user?.role === "staff" && isStaffRoute(location) && (
+                <div className="mx-2 rounded-lg bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 flex items-center shadow-sm border border-orange-500/20">
+                  <Shield className="mr-2 h-3.5 w-3.5" />
+                  Painel Master SaaS
                 </div>
-              ) : null}
+              )}
             </div>
           </SidebarHeader>
 
@@ -712,7 +721,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="app-main-content flex-1 overflow-auto p-4 md:p-6 lg:p-8 rounded-tl-3xl border-t border-l border-border bg-card shadow-sm m-1 mr-0 mb-0 md:m-2 md:mr-0 md:mb-0 transition-colors duration-200 dark:bg-card/50 dark:border-border/50">
+        <main className="app-main-content flex-1 overflow-auto p-4 md:p-6 lg:p-8 rounded-tl-3xl border-t border-l border-border bg-card shadow-sm m-1 mr-0 mb-0 mb-0 md:m-2 md:mr-0 md:mb-0 transition-colors duration-200 dark:bg-card/50 dark:border-border/50">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>
