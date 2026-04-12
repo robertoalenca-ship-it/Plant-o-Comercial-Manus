@@ -58,6 +58,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const menuItems = [
+  { 
+    icon: Shield, 
+    label: "Painel Master (SaaS)", 
+    path: STAFF_HOME_PATH,
+    roles: ['staff', 'admin'] 
+  },
   { icon: LayoutDashboard, label: "Dashboard", path: appPath() },
   { icon: CalendarDays, label: "Calendario", path: appPath("/calendar") },
   { icon: Users, label: "Equipe", path: appPath("/doctors") },
@@ -70,6 +76,12 @@ const menuItems = [
   { icon: AlertTriangle, label: "Excecoes", path: appPath("/exceptions") },
   { icon: BarChart3, label: "Relatorios", path: appPath("/reports") },
   { icon: Settings, label: "Configuracoes", path: appPath("/settings") },
+  { 
+    icon: Users, 
+    label: "Equipe da Unidade", 
+    path: appPath("/admin"),
+    roles: ['staff', 'admin']
+  },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -444,19 +456,17 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const allMenuItems = useMemo(() => {
-    const items = [...menuItems];
-    
-    // Links para Staff (Dono do SaaS)
-    if (user?.role === 'staff' || user?.role === 'admin') {
-      items.unshift({ icon: Shield, label: "Master Dashboard", path: STAFF_HOME_PATH });
+    // Debug log para verificar o papel do usuário no console se necessário
+    if (user) {
+      console.log(`[Sidebar] User: ${user.email}, Role: ${user.role}`);
     }
 
-    // Link para Admin/Staff (Gerenciamento da Equipe local)
-    if (user?.role === 'staff' || user?.role === 'admin') {
-      items.push({ icon: Users, label: "Equipe da Unidade", path: appPath("/admin") });
-    }
-    
-    return items;
+    return menuItems.filter(item => {
+      // Se não tem restrição de roles, todos veem
+      if (!item.roles) return true;
+      // Se tem restrição, verifica se o role do usuário bate
+      return user && item.roles.includes(user.role);
+    });
   }, [user?.role]);
 
   const activeMenuItem = allMenuItems.find((item) => item.path === location);

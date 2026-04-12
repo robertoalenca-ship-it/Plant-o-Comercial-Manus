@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users, Shield, User as UserIcon } from "lucide-react";
+import { Search, Users, Shield, User as UserIcon, Zap } from "lucide-react";
 
 export default function AdminPanel() {
   const [search, setSearch] = useState("");
