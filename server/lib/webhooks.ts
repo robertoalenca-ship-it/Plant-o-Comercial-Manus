@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { stripe } from "./stripe";
+import { ENV } from "../_core/env";
 import { getUserById, updateUserSubscription } from "../db";
 
 export async function handleStripeWebhook(req: Request, res: Response) {
@@ -10,7 +11,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET ?? "whsec_mock"
+      ENV.stripeWebhookSecret || "whsec_mock"
     );
   } catch (err: any) {
     console.error(`Webhook Error: ${err.message}`);
@@ -34,8 +35,8 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         const priceId = lineItems.data[0]?.price?.id;
         
         let maxProfiles = 1;
-        if (priceId === process.env.STRIPE_PRICE_ID_EXPANSION) maxProfiles = 3;
-        if (priceId === process.env.STRIPE_PRICE_ID_ENTERPRISE) maxProfiles = 10;
+        if (priceId === ENV.stripePriceIdExpansion) maxProfiles = 3;
+        if (priceId === ENV.stripePriceIdEnterprise) maxProfiles = 10;
 
         await updateUserSubscription(userId, {
           isPaid: true,

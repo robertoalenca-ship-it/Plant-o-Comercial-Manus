@@ -1,4 +1,5 @@
 export const ENV = {
+  appUrl: process.env.APP_URL ?? "",
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
@@ -12,6 +13,11 @@ export const ENV = {
     process.env.NODE_ENV === "test" ||
     process.env.VITEST === "true",
   isProduction: process.env.NODE_ENV === "production",
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  stripePriceIdIndividual: process.env.STRIPE_PRICE_ID_INDIVIDUAL ?? "",
+  stripePriceIdExpansion: process.env.STRIPE_PRICE_ID_EXPANSION ?? "",
+  stripePriceIdEnterprise: process.env.STRIPE_PRICE_ID_ENTERPRISE ?? "",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };
