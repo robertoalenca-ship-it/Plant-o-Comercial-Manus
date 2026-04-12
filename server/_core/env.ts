@@ -1,10 +1,16 @@
 export const ENV = {
   appUrl: process.env.APP_URL ?? "",
-  appId: process.env.VITE_APP_ID ?? "",
+  appId:
+    process.env.VITE_APP_ID ??
+    process.env.GOOGLE_CLIENT_ID ??
+    process.env.LOCAL_SESSION_APP_ID ??
+    "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
   localLoginUsername: process.env.LOCAL_LOGIN_USERNAME ?? "admin",
   localLoginPassword: process.env.LOCAL_LOGIN_PASSWORD ?? "sonhen",
   localSessionAppId: process.env.LOCAL_SESSION_APP_ID ?? "local-auth",

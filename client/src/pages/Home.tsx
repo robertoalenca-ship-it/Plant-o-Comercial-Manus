@@ -156,7 +156,7 @@ export default function Home() {
     : isAuthenticated
       ? "Abrir aplicativo"
       : loginUrl
-        ? "Entrar com OAuth"
+        ? "Entrar com Google"
         : "Entrar no sistema";
   const salesIsExternal = Boolean(
     salesContactUrl && !salesContactUrl.startsWith("/")

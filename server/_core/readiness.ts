@@ -8,11 +8,9 @@ type ReadinessCheck = {
 };
 
 const BASE_REQUIRED_ENV_VARS = ["DATABASE_URL", "JWT_SECRET"] as const;
-const OAUTH_ENV_VARS = [
-  "OAUTH_SERVER_URL",
-  "OWNER_OPEN_ID",
-  "VITE_APP_ID",
-  "VITE_OAUTH_PORTAL_URL",
+const GOOGLE_AUTH_ENV_VARS = [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
 ] as const;
 
 function hasValue(value: string | undefined): value is string {
@@ -25,12 +23,15 @@ function isWeakJwtSecret(secret: string | undefined): boolean {
 }
 
 export async function getReadinessReport() {
-  const configuredOAuthEnvVars = OAUTH_ENV_VARS.filter((key) => hasValue(process.env[key]));
-  const isOAuthFullyConfigured = configuredOAuthEnvVars.length === OAUTH_ENV_VARS.length;
-  const hasPartialOAuthConfig =
-    configuredOAuthEnvVars.length > 0 && !isOAuthFullyConfigured;
-  const requiredEnvVars = hasPartialOAuthConfig
-    ? [...BASE_REQUIRED_ENV_VARS, ...OAUTH_ENV_VARS]
+  const configuredGoogleAuthEnvVars = GOOGLE_AUTH_ENV_VARS.filter((key) =>
+    hasValue(process.env[key])
+  );
+  const isGoogleAuthFullyConfigured =
+    configuredGoogleAuthEnvVars.length === GOOGLE_AUTH_ENV_VARS.length;
+  const hasPartialGoogleAuthConfig =
+    configuredGoogleAuthEnvVars.length > 0 && !isGoogleAuthFullyConfigured;
+  const requiredEnvVars = hasPartialGoogleAuthConfig
+    ? [...BASE_REQUIRED_ENV_VARS, ...GOOGLE_AUTH_ENV_VARS]
     : [...BASE_REQUIRED_ENV_VARS];
 
   const missingEnvVars = requiredEnvVars.filter((key) => !hasValue(process.env[key]));
@@ -55,11 +56,11 @@ export async function getReadinessReport() {
 
   checks.push({
     name: "auth.configuration",
-    ok: !hasPartialOAuthConfig,
-    details: hasPartialOAuthConfig
-      ? `OAuth parcialmente configurado. Complete: ${OAUTH_ENV_VARS.filter((key) => !hasValue(process.env[key])).join(", ")}`
-      : isOAuthFullyConfigured
-        ? "Autenticacao OAuth configurada"
+    ok: !hasPartialGoogleAuthConfig,
+    details: hasPartialGoogleAuthConfig
+      ? `Google OAuth parcialmente configurado. Complete: ${GOOGLE_AUTH_ENV_VARS.filter((key) => !hasValue(process.env[key])).join(", ")}`
+      : isGoogleAuthFullyConfigured
+        ? "Autenticacao Google configurada"
         : "Autenticacao local configurada",
   });
 
@@ -73,8 +74,8 @@ export async function getReadinessReport() {
   return {
     ok: checks.every((check) => check.ok),
     environment: ENV.isProduction ? "production" : "development",
-    authMode: isOAuthFullyConfigured
-      ? "oauth"
+    authMode: isGoogleAuthFullyConfigured
+      ? "google"
       : ENV.isProduction
         ? "local-password"
         : "local-dev",
