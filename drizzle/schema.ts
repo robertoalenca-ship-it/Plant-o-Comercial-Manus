@@ -265,6 +265,68 @@ export type ScheduleEntry = typeof scheduleEntries.$inferSelect;
 export type InsertScheduleEntry = typeof scheduleEntries.$inferInsert;
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
+export const swapRequests = mysqlTable(
+  "swap_requests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    profileId: int("profileId").notNull(),
+    scheduleId: int("scheduleId").notNull(),
+    scheduleEntryId: int("scheduleEntryId").notNull(),
+    requesterUserId: int("requesterUserId"),
+    requesterDoctorId: int("requesterDoctorId"),
+    currentDoctorId: int("currentDoctorId").notNull(),
+    targetDoctorId: int("targetDoctorId"),
+    requestType: mysqlEnum("requestType", ["direct_swap", "open_cover"]).default("direct_swap").notNull(),
+    status: mysqlEnum("status", ["pending", "approved", "rejected", "cancelled"]).default("pending").notNull(),
+    reason: varchar("reason", { length: 512 }),
+    decisionNote: varchar("decisionNote", { length: 512 }),
+    reviewedByUserId: int("reviewedByUserId"),
+    reviewedAt: timestamp("reviewedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    profileIdIdx: index("swap_requests_profile_id_idx").on(table.profileId),
+    scheduleIdIdx: index("swap_requests_schedule_id_idx").on(table.scheduleId),
+    entryIdIdx: index("swap_requests_entry_id_idx").on(table.scheduleEntryId),
+    statusIdx: index("swap_requests_status_idx").on(table.status),
+  })
+);
+
+export type SwapRequest = typeof swapRequests.$inferSelect;
+export type InsertSwapRequest = typeof swapRequests.$inferInsert;
+
+export const notificationDispatches = mysqlTable(
+  "notification_dispatches",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    profileId: int("profileId").notNull(),
+    entityType: varchar("entityType", { length: 64 }).notNull(),
+    entityId: int("entityId"),
+    recipientDoctorId: int("recipientDoctorId"),
+    recipientUserId: int("recipientUserId"),
+    channel: mysqlEnum("channel", ["email", "whatsapp"]).notNull(),
+    templateKey: varchar("templateKey", { length: 64 }).notNull(),
+    destination: varchar("destination", { length: 255 }),
+    payload: json("payload"),
+    status: mysqlEnum("status", ["queued", "sent", "failed", "cancelled"]).default("queued").notNull(),
+    scheduledFor: timestamp("scheduledFor"),
+    sentAt: timestamp("sentAt"),
+    failedAt: timestamp("failedAt"),
+    failureReason: text("failureReason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    profileIdIdx: index("notification_dispatches_profile_id_idx").on(table.profileId),
+    statusIdx: index("notification_dispatches_status_idx").on(table.status),
+    scheduledForIdx: index("notification_dispatches_scheduled_for_idx").on(table.scheduledFor),
+  })
+);
+
+export type NotificationDispatch = typeof notificationDispatches.$inferSelect;
+export type InsertNotificationDispatch = typeof notificationDispatches.$inferInsert;
+
 export const auditLogs = mysqlTable("audit_logs", {
   id: int("id").autoincrement().primaryKey(),
   profileId: int("profileId").notNull(),

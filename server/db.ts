@@ -12,9 +12,11 @@ import {
   localUserCredentials,
   monthlyExceptions,
   nightRotationState,
+  notificationDispatches,
   scheduleEntries,
   scheduleProfiles,
   schedules,
+  swapRequests,
   users,
   userProfiles,
   weekendRules,
@@ -60,6 +62,8 @@ type OfflineRuntimeException = Omit<
 };
 type OfflineRuntimeDateUnavailability = typeof dateUnavailabilities.$inferSelect;
 type OfflineRuntimeHoliday = typeof holidays.$inferSelect;
+type OfflineRuntimeSwapRequest = typeof swapRequests.$inferSelect;
+type OfflineRuntimeNotificationDispatch = typeof notificationDispatches.$inferSelect;
 type OfflineRuntimeLocalUserCredential =
   typeof localUserCredentials.$inferSelect;
 
@@ -92,6 +96,11 @@ const offlineRuntimeDateUnavailabilitiesById = new Map<
   OfflineRuntimeDateUnavailability
 >();
 const offlineRuntimeHolidaysById = new Map<number, OfflineRuntimeHoliday>();
+const offlineRuntimeSwapRequestsById = new Map<number, OfflineRuntimeSwapRequest>();
+const offlineRuntimeNotificationDispatchesById = new Map<
+  number,
+  OfflineRuntimeNotificationDispatch
+>();
 const offlineRuntimeManagedUsersById = new Map<number, typeof users.$inferSelect>();
 const offlineRuntimeLocalUserCredentialsById = new Map<
   number,
@@ -2048,6 +2057,148 @@ export async function upsertNightRotationState(
     .insert(nightRotationState)
     .values({ doctorId, ...data })
     .onDuplicateKeyUpdate({ set: data });
+}
+
+// Swap requests
+export async function listSwapRequestsForSchedule(
+  scheduleId: number,
+  profileId: number
+) {
+  const db = await getDb();
+  if (!db) {
+    return Array.from(offlineRuntimeSwapRequestsById.values()).filter(
+      (request) =>
+        request.scheduleId === scheduleId && request.profileId === profileId
+    );
+  }
+
+  return db
+    .select()
+    .from(swapRequests)
+    .where(
+      and(
+        eq(swapRequests.scheduleId, scheduleId),
+        eq(swapRequests.profileId, profileId)
+      )
+    );
+}
+
+export async function getSwapRequestById(id: number, profileId: number) {
+  const db = await getDb();
+  if (!db) {
+    const request = offlineRuntimeSwapRequestsById.get(id);
+    return request?.profileId === profileId ? request : undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(swapRequests)
+    .where(and(eq(swapRequests.id, id), eq(swapRequests.profileId, profileId)))
+    .limit(1);
+
+  return result[0];
+}
+
+export async function createSwapRequest(data: typeof swapRequests.$inferInsert) {
+  const db = await getDb();
+  if (!db) {
+    const now = new Date();
+    const request: OfflineRuntimeSwapRequest = {
+      id: getNextOfflineRuntimeId(offlineRuntimeSwapRequestsById),
+      profileId: data.profileId,
+      scheduleId: data.scheduleId,
+      scheduleEntryId: data.scheduleEntryId,
+      requesterUserId: data.requesterUserId ?? null,
+      requesterDoctorId: data.requesterDoctorId ?? null,
+      currentDoctorId: data.currentDoctorId,
+      targetDoctorId: data.targetDoctorId ?? null,
+      requestType: data.requestType ?? "direct_swap",
+      status: data.status ?? "pending",
+      reason: data.reason ?? null,
+      decisionNote: data.decisionNote ?? null,
+      reviewedByUserId: data.reviewedByUserId ?? null,
+      reviewedAt: data.reviewedAt ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    offlineRuntimeSwapRequestsById.set(request.id, request);
+    return request;
+  }
+
+  await db.insert(swapRequests).values(data);
+
+  const result = await db
+    .select()
+    .from(swapRequests)
+    .where(
+      and(
+        eq(swapRequests.scheduleEntryId, data.scheduleEntryId),
+        eq(swapRequests.profileId, data.profileId)
+      )
+    );
+
+  return result[result.length - 1];
+}
+
+export async function updateSwapRequest(
+  id: number,
+  profileId: number,
+  data: Partial<typeof swapRequests.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) {
+    const currentRequest = offlineRuntimeSwapRequestsById.get(id);
+    if (!currentRequest || currentRequest.profileId !== profileId) return;
+
+    offlineRuntimeSwapRequestsById.set(id, {
+      ...currentRequest,
+      ...data,
+      id,
+      profileId,
+      updatedAt: new Date(),
+    });
+    return;
+  }
+
+  await db
+    .update(swapRequests)
+    .set(data)
+    .where(and(eq(swapRequests.id, id), eq(swapRequests.profileId, profileId)));
+}
+
+// Notification outbox
+export async function createNotificationDispatch(
+  data: typeof notificationDispatches.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) {
+    const now = new Date();
+    const dispatch: OfflineRuntimeNotificationDispatch = {
+      id: getNextOfflineRuntimeId(offlineRuntimeNotificationDispatchesById),
+      profileId: data.profileId,
+      entityType: data.entityType,
+      entityId: data.entityId ?? null,
+      recipientDoctorId: data.recipientDoctorId ?? null,
+      recipientUserId: data.recipientUserId ?? null,
+      channel: data.channel,
+      templateKey: data.templateKey,
+      destination: data.destination ?? null,
+      payload: data.payload ?? null,
+      status: data.status ?? "queued",
+      scheduledFor: data.scheduledFor ?? null,
+      sentAt: data.sentAt ?? null,
+      failedAt: data.failedAt ?? null,
+      failureReason: data.failureReason ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    offlineRuntimeNotificationDispatchesById.set(dispatch.id, dispatch);
+    return dispatch;
+  }
+
+  await db.insert(notificationDispatches).values(data);
 }
 
 // Audit logs

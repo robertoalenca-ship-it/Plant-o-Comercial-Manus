@@ -48,7 +48,7 @@ import {
   FileDown,
   Upload,
   User,
-  MoreVertical,
+  ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -144,8 +144,23 @@ export default function Calendar() {
   const [importPreview, setImportPreview] =
     useState<ScheduleWorkbookPreview | null>(null);
   const [isReadingImportFile, setIsReadingImportFile] = useState(false);
+  const [swapModal, setSwapModal] = useState<{
+    entryId: number;
+    scheduleId: number;
+    currentDoctorId: number;
+    currentDoctorName: string;
+  } | null>(null);
+  const [swapTargetDoctorId, setSwapTargetDoctorId] = useState<string>("none");
+  const [swapReason, setSwapReason] = useState("");
+  const [approvalDoctorByRequestId, setApprovalDoctorByRequestId] = useState<
+    Record<number, string>
+  >({});
 
   const scheduleQuery = trpc.schedules.getByMonth.useQuery({ year, month });
+  const swapRequestsQuery = trpc.swapRequests.listForSchedule.useQuery(
+    { scheduleId: scheduleQuery.data?.id ?? 0 },
+    { enabled: !!scheduleQuery.data?.id }
+  );
   const preloadedAprilSchedule = trpc.schedules.getByMonth.useQuery(
     {
       year: ORTHOPEDICS_PRELOADED_YEAR,
@@ -213,6 +228,33 @@ export default function Calendar() {
       toast.success("Plantao removido");
       setEditModal(null);
       scheduleQuery.refetch();
+    },
+    onError: (err) => toast.error(`Erro: ${err.message}`),
+  });
+
+  const createSwapRequestMutation = trpc.swapRequests.create.useMutation({
+    onSuccess: async () => {
+      toast.success("Solicitacao de troca criada");
+      setSwapModal(null);
+      setSwapTargetDoctorId("none");
+      setSwapReason("");
+      await swapRequestsQuery.refetch();
+    },
+    onError: (err) => toast.error(`Erro: ${err.message}`),
+  });
+
+  const approveSwapRequestMutation = trpc.swapRequests.approve.useMutation({
+    onSuccess: async () => {
+      toast.success("Troca aprovada");
+      await Promise.all([scheduleQuery.refetch(), swapRequestsQuery.refetch()]);
+    },
+    onError: (err) => toast.error(`Erro: ${err.message}`),
+  });
+
+  const rejectSwapRequestMutation = trpc.swapRequests.reject.useMutation({
+    onSuccess: async () => {
+      toast.success("Solicitacao rejeitada");
+      await swapRequestsQuery.refetch();
     },
     onError: (err) => toast.error(`Erro: ${err.message}`),
   });
@@ -322,6 +364,22 @@ export default function Calendar() {
     validationQuery.data?.conflicts?.forEach((conflict) => set.add(conflict.date));
     return set;
   }, [validationQuery.data]);
+
+  const isManager =
+    user?.role === "admin" || user?.role === "coordinator" || user?.role === "staff";
+
+  type SwapRequestItem = NonNullable<typeof swapRequestsQuery.data>[number];
+
+  const swapRequestsByEntryId = useMemo(() => {
+    const map = new Map<number, SwapRequestItem[]>();
+    (swapRequestsQuery.data ?? []).forEach((request) => {
+      if (!map.has(request.scheduleEntryId)) {
+        map.set(request.scheduleEntryId, []);
+      }
+      map.get(request.scheduleEntryId)!.push(request);
+    });
+    return map;
+  }, [swapRequestsQuery.data]);
 
   const conflictsByDateShift = useMemo(() => {
     const map = new Map<string, NonNullable<typeof validationQuery.data>["conflicts"]>();
@@ -476,6 +534,66 @@ export default function Calendar() {
       entryDate: addModal.date,
       shiftType: toLegacyStandardShiftType(selectedShift),
       notes,
+    });
+  }
+
+  function openSwapRequestModal(entry: {
+    id: number;
+    doctorId: number;
+    doctorName: string;
+  }) {
+    if (!scheduleQuery.data?.id) return;
+
+    setSwapModal({
+      entryId: entry.id,
+      scheduleId: scheduleQuery.data.id,
+      currentDoctorId: entry.doctorId,
+      currentDoctorName: entry.doctorName,
+    });
+    setSwapTargetDoctorId("none");
+    setSwapReason("");
+  }
+
+  function handleCreateSwapRequest() {
+    if (!swapModal) return;
+
+    const trimmedReason = swapReason.trim();
+    if (trimmedReason.length < 3) {
+      toast.error("Descreva o motivo da troca com pelo menos 3 caracteres.");
+      return;
+    }
+
+    createSwapRequestMutation.mutate({
+      scheduleId: swapModal.scheduleId,
+      entryId: swapModal.entryId,
+      requesterDoctorId: swapModal.currentDoctorId,
+      targetDoctorId:
+        swapTargetDoctorId === "none"
+          ? null
+          : Number.parseInt(swapTargetDoctorId),
+      requestType: swapTargetDoctorId === "none" ? "open_cover" : "direct_swap",
+      reason: trimmedReason,
+    });
+  }
+
+  function handleApproveSwapRequest(request: {
+    id: number;
+    targetDoctorId: number | null;
+  }) {
+    const chosenDoctorId =
+      request.targetDoctorId ??
+      (approvalDoctorByRequestId[request.id]
+        ? Number.parseInt(approvalDoctorByRequestId[request.id]!)
+        : null);
+
+    if (!chosenDoctorId) {
+      toast.error("Escolha o médico substituto para aprovar a troca.");
+      return;
+    }
+
+    approveSwapRequestMutation.mutate({
+      requestId: request.id,
+      targetDoctorId: chosenDoctorId,
     });
   }
 
@@ -844,28 +962,188 @@ export default function Calendar() {
             {editModalEntries.length > 0 ? (
               <div className="space-y-3">
                 {editModalEntries.map(entry => (
-                  <div key={entry.id} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 dark:bg-slate-900/40">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm dark:bg-slate-800 border">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{entry.doctorName}</p>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] h-4 py-0">{(doctorMap.get(entry.doctorId) as any)?.specialty || 'Especialista'}</Badge>
-                          {entry.isFixed && <Badge className="bg-blue-100 text-blue-700 text-[9px] h-4 py-0">Fixo</Badge>}
+                  <div key={entry.id} className="space-y-3 rounded-xl border bg-slate-50 p-3 dark:bg-slate-900/40">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm dark:bg-slate-800 border">
+                          <User className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{entry.doctorName}</p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[9px] h-4 py-0">{(doctorMap.get(entry.doctorId) as any)?.specialty || 'Especialista'}</Badge>
+                            {entry.isFixed && <Badge className="bg-blue-100 text-blue-700 text-[9px] h-4 py-0">Fixo</Badge>}
+                          </div>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSwapRequestModal(entry)}
+                          className="gap-2"
+                        >
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                          Solicitar troca
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          disabled={removeEntryMutation.isPending}
+                          onClick={() => removeEntryMutation.mutate({ entryId: entry.id, scheduleId: scheduleQuery.data!.id })}
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                        >
+                          Remover
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      disabled={removeEntryMutation.isPending}
-                      onClick={() => removeEntryMutation.mutate({ entryId: entry.id, scheduleId: scheduleQuery.data!.id })}
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                    >
-                      Remover
-                    </Button>
+
+                    {(swapRequestsByEntryId.get(entry.id) ?? []).length > 0 && (
+                      <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          Solicitações de troca
+                        </p>
+                        {(swapRequestsByEntryId.get(entry.id) ?? []).map((request) => {
+                          const targetDoctorName = request.targetDoctorId
+                            ? doctorMap.get(request.targetDoctorId)?.name ??
+                              `Médico ${request.targetDoctorId}`
+                            : "Cobertura em aberto";
+                          const currentDoctorName =
+                            doctorMap.get(request.currentDoctorId)?.name ??
+                            entry.doctorName;
+                          const canApprove =
+                            request.status === "pending" &&
+                            isManager &&
+                            !!(
+                              request.targetDoctorId ||
+                              approvalDoctorByRequestId[request.id]
+                            );
+
+                          return (
+                            <div
+                              key={request.id}
+                              className="space-y-2 rounded-lg border border-border/50 bg-card p-3"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] uppercase">
+                                  {request.requestType === "direct_swap"
+                                    ? "Troca direta"
+                                    : "Cobertura aberta"}
+                                </Badge>
+                                <Badge
+                                  className={cn(
+                                    "text-[9px] uppercase",
+                                    request.status === "approved" &&
+                                      "bg-emerald-100 text-emerald-700",
+                                    request.status === "rejected" &&
+                                      "bg-rose-100 text-rose-700",
+                                    request.status === "pending" &&
+                                      "bg-amber-100 text-amber-700",
+                                    request.status === "cancelled" &&
+                                      "bg-slate-200 text-slate-700"
+                                  )}
+                                >
+                                  {request.status === "pending" && "Pendente"}
+                                  {request.status === "approved" && "Aprovada"}
+                                  {request.status === "rejected" && "Rejeitada"}
+                                  {request.status === "cancelled" && "Cancelada"}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <p>
+                                  <span className="font-semibold text-foreground">Origem:</span>{" "}
+                                  {currentDoctorName}
+                                </p>
+                                <p>
+                                  <span className="font-semibold text-foreground">Destino:</span>{" "}
+                                  {targetDoctorName}
+                                </p>
+                                <p>
+                                  <span className="font-semibold text-foreground">Motivo:</span>{" "}
+                                  {request.reason}
+                                </p>
+                              </div>
+
+                              {isManager &&
+                                request.status === "pending" &&
+                                !request.targetDoctorId && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[11px]">
+                                      Definir substituto para aprovar
+                                    </Label>
+                                    <Select
+                                      value={
+                                        approvalDoctorByRequestId[request.id] ?? "none"
+                                      }
+                                      onValueChange={(value) =>
+                                        setApprovalDoctorByRequestId((current) => ({
+                                          ...current,
+                                          [request.id]: value,
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Escolha o médico substituto" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">
+                                          Selecione um médico
+                                        </SelectItem>
+                                        {doctorsQuery.data
+                                          ?.filter(
+                                            (doctor) =>
+                                              doctor.id !== request.currentDoctorId
+                                          )
+                                          .map((doctor) => (
+                                            <SelectItem
+                                              key={doctor.id}
+                                              value={String(doctor.id)}
+                                            >
+                                              {doctor.name}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+
+                              {isManager && request.status === "pending" && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    disabled={
+                                      approveSwapRequestMutation.isPending ||
+                                      !canApprove
+                                    }
+                                    onClick={() =>
+                                      handleApproveSwapRequest({
+                                        id: request.id,
+                                        targetDoctorId: request.targetDoctorId,
+                                      })
+                                    }
+                                  >
+                                    Aprovar
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={rejectSwapRequestMutation.isPending}
+                                    onClick={() =>
+                                      rejectSwapRequestMutation.mutate({
+                                        requestId: request.id,
+                                      })
+                                    }
+                                  >
+                                    Rejeitar
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -888,6 +1166,92 @@ export default function Calendar() {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditModal(null)} className="w-full">Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!swapModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSwapModal(null);
+            setSwapTargetDoctorId("none");
+            setSwapReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-teal-600" />
+              Solicitar troca de plantão
+            </DialogTitle>
+            {swapModal && (
+              <p className="text-xs text-muted-foreground">
+                Plantão atualmente com {swapModal.currentDoctorName}
+              </p>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Médico substituto</Label>
+              <Select
+                value={swapTargetDoctorId}
+                onValueChange={setSwapTargetDoctorId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um médico ou deixe em aberto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Deixar cobertura em aberto</SelectItem>
+                  {doctorsQuery.data
+                    ?.filter(
+                      (doctor) => doctor.id !== swapModal?.currentDoctorId
+                    )
+                    .map((doctor) => (
+                      <SelectItem key={doctor.id} value={String(doctor.id)}>
+                        {doctor.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Se você deixar em aberto, o pedido fica pendente até o coordenador
+                definir quem assume o plantão.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Motivo da troca</Label>
+              <Textarea
+                value={swapReason}
+                onChange={(event) => setSwapReason(event.target.value)}
+                placeholder="Ex.: congresso, consulta, indisponibilidade pontual..."
+                className="resize-none h-24"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSwapModal(null);
+                setSwapTargetDoctorId("none");
+                setSwapReason("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateSwapRequest}
+              disabled={createSwapRequestMutation.isPending}
+            >
+              {createSwapRequestMutation.isPending
+                ? "Enviando..."
+                : "Enviar solicitação"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -951,8 +1315,11 @@ export default function Calendar() {
                 {importPreview.errors.length > 0 && (
                   <div className="max-h-32 overflow-y-auto rounded-xl bg-orange-50 p-3 dark:bg-orange-950/20">
                     {importPreview.errors.map((err, idx) => (
-                      <p key={idx} className="text-[10px] text-orange-800 dark:text-orange-300">
-                        • {err}
+                      <p
+                        key={idx}
+                        className="text-[10px] text-orange-800 dark:text-orange-300"
+                      >
+                        linha {err.rowNumber}: {err.message}
                       </p>
                     ))}
                   </div>

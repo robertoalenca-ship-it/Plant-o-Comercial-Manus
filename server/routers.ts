@@ -21,6 +21,7 @@ import {
   createDateUnavailability,
   createDoctor,
   createManagedLocalUser,
+  createSwapRequest,
   createEntry,
   createException,
   createFixedUnavailability,
@@ -55,6 +56,7 @@ import {
   getManagedLocalUserByEmail,
   getScheduleById,
   getScheduleByMonth,
+  getSwapRequestById,
   getWeekendRuleById,
   getWeeklyRuleById,
   listManagedLocalUsers,
@@ -64,6 +66,8 @@ import {
   verifyAuthToken,
   setEmailVerified,
   updateLocalUserPassword,
+  updateEntry,
+  updateSwapRequest,
   upsertUser,
   updateDoctor,
   updateException,
@@ -72,7 +76,9 @@ import {
   updateWeeklyRule,
   getUserById,
   updateUserSubscription,
+  listSwapRequestsForSchedule,
 } from "./db";
+import { queueDoctorNotifications } from "./notifications";
 import { stripe, STRIPE_PRICES } from "./lib/stripe";
 import {
   applyOrthopedicsBaseline,
@@ -258,9 +264,300 @@ const paymentsRouter = router({
     }),
 });
 
+const swapRequestsRouter = router({
+  listForSchedule: profileProcedure
+    .input(z.object({ scheduleId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await requireScheduleInProfile(ctx.scheduleProfileId, input.scheduleId);
+      return listSwapRequestsForSchedule(input.scheduleId, ctx.scheduleProfileId);
+    }),
+
+  create: profileProcedure
+    .input(
+      z.object({
+        scheduleId: z.number(),
+        entryId: z.number(),
+        requesterDoctorId: z.number().nullable().optional(),
+        targetDoctorId: z.number().nullable().optional(),
+        requestType: z.enum(["direct_swap", "open_cover"]).default("direct_swap"),
+        reason: z.string().trim().min(3).max(512),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const profileId = ctx.scheduleProfileId;
+      await requireScheduleInProfile(profileId, input.scheduleId);
+
+      const entries = await getEntriesForSchedule(input.scheduleId);
+      const entry = entries.find((item) => item.id === input.entryId);
+
+      if (!entry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Plantao nao encontrado",
+        });
+      }
+
+      if (input.requesterDoctorId) {
+        await requireDoctorInProfile(profileId, input.requesterDoctorId);
+      }
+
+      if (input.targetDoctorId) {
+        if (input.targetDoctorId === entry.doctorId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "O medico substituto precisa ser diferente do medico atual",
+          });
+        }
+        await requireDoctorInProfile(profileId, input.targetDoctorId);
+      }
+
+      if (input.requestType === "direct_swap" && !input.targetDoctorId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Escolha um medico substituto para a troca direta",
+        });
+      }
+
+      const swapRequest = await createSwapRequest({
+        profileId,
+        scheduleId: input.scheduleId,
+        scheduleEntryId: input.entryId,
+        requesterUserId: ctx.user.id,
+        requesterDoctorId: input.requesterDoctorId ?? null,
+        currentDoctorId: entry.doctorId,
+        targetDoctorId: input.targetDoctorId ?? null,
+        requestType: input.requestType,
+        reason: input.reason,
+        status: "pending",
+      });
+
+      await createAuditLog({
+        profileId,
+        scheduleId: input.scheduleId,
+        userId: ctx.user.id,
+        action: "create_swap_request",
+        entityType: "swap_request",
+        entityId: swapRequest?.id,
+        description: `Solicitacao de troca criada para o plantao ${input.entryId}`,
+        newValue: {
+          requesterDoctorId: input.requesterDoctorId ?? null,
+          currentDoctorId: entry.doctorId,
+          targetDoctorId: input.targetDoctorId ?? null,
+          requestType: input.requestType,
+          reason: input.reason,
+        },
+      });
+
+      await queueDoctorNotifications(
+        profileId,
+        entry.doctorId,
+        "swap_request",
+        swapRequest?.id,
+        "swap_request_created",
+        {
+          scheduleEntryId: input.entryId,
+          scheduleId: input.scheduleId,
+          targetDoctorId: input.targetDoctorId ?? null,
+          requestType: input.requestType,
+        }
+      );
+
+      if (input.targetDoctorId) {
+        await queueDoctorNotifications(
+          profileId,
+          input.targetDoctorId,
+          "swap_request",
+          swapRequest?.id,
+          "swap_request_targeted",
+          {
+            scheduleEntryId: input.entryId,
+            scheduleId: input.scheduleId,
+            currentDoctorId: entry.doctorId,
+          }
+        );
+      }
+
+      return { success: true, requestId: swapRequest?.id ?? null };
+    }),
+
+  approve: managerProfileProcedure
+    .input(
+      z.object({
+        requestId: z.number(),
+        targetDoctorId: z.number().nullable().optional(),
+        decisionNote: z.string().trim().max(512).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const profileId = ctx.scheduleProfileId;
+      const request = await getSwapRequestById(input.requestId, profileId);
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Solicitacao de troca nao encontrada",
+        });
+      }
+
+      if (request.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A solicitacao de troca ja foi processada",
+        });
+      }
+
+      const schedule = await requireScheduleInProfile(profileId, request.scheduleId);
+      if (schedule.status === "approved" || schedule.status === "locked") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Nao e possivel alterar uma escala aprovada ou bloqueada",
+        });
+      }
+
+      const entries = await getEntriesForSchedule(request.scheduleId);
+      const entry = entries.find((item) => item.id === request.scheduleEntryId);
+      if (!entry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Plantao vinculado a solicitacao nao encontrado",
+        });
+      }
+
+      const effectiveTargetDoctorId =
+        request.targetDoctorId ?? input.targetDoctorId ?? null;
+
+      if (!effectiveTargetDoctorId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Informe o medico substituto para aprovar a troca",
+        });
+      }
+
+      await requireDoctorInProfile(profileId, effectiveTargetDoctorId);
+
+      await updateEntry(entry.id, {
+        doctorId: effectiveTargetDoctorId,
+        confirmationStatus: "adjustment_requested",
+        isManualOverride: true,
+        overrideJustification: `Troca aprovada via solicitacao #${request.id}`,
+      });
+
+      await updateSwapRequest(request.id, profileId, {
+        status: "approved",
+        targetDoctorId: effectiveTargetDoctorId,
+        decisionNote: input.decisionNote ?? null,
+        reviewedByUserId: ctx.user.id,
+        reviewedAt: new Date(),
+      });
+
+      await createAuditLog({
+        profileId,
+        scheduleId: request.scheduleId,
+        userId: ctx.user.id,
+        action: "approve_swap_request",
+        entityType: "swap_request",
+        entityId: request.id,
+        description: `Solicitacao de troca ${request.id} aprovada`,
+        previousValue: {
+          doctorId: entry.doctorId,
+        },
+        newValue: {
+          doctorId: effectiveTargetDoctorId,
+          decisionNote: input.decisionNote ?? null,
+        },
+      });
+
+      await queueDoctorNotifications(
+        profileId,
+        request.currentDoctorId,
+        "swap_request",
+        request.id,
+        "swap_request_approved",
+        {
+          scheduleEntryId: request.scheduleEntryId,
+          replacementDoctorId: effectiveTargetDoctorId,
+        }
+      );
+
+      await queueDoctorNotifications(
+        profileId,
+        effectiveTargetDoctorId,
+        "swap_request",
+        request.id,
+        "swap_request_assigned",
+        {
+          scheduleEntryId: request.scheduleEntryId,
+          previousDoctorId: request.currentDoctorId,
+        }
+      );
+
+      return { success: true };
+    }),
+
+  reject: managerProfileProcedure
+    .input(
+      z.object({
+        requestId: z.number(),
+        decisionNote: z.string().trim().max(512).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const profileId = ctx.scheduleProfileId;
+      const request = await getSwapRequestById(input.requestId, profileId);
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Solicitacao de troca nao encontrada",
+        });
+      }
+
+      if (request.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A solicitacao de troca ja foi processada",
+        });
+      }
+
+      await updateSwapRequest(request.id, profileId, {
+        status: "rejected",
+        decisionNote: input.decisionNote ?? null,
+        reviewedByUserId: ctx.user.id,
+        reviewedAt: new Date(),
+      });
+
+      await createAuditLog({
+        profileId,
+        scheduleId: request.scheduleId,
+        userId: ctx.user.id,
+        action: "reject_swap_request",
+        entityType: "swap_request",
+        entityId: request.id,
+        description: `Solicitacao de troca ${request.id} rejeitada`,
+        newValue: {
+          decisionNote: input.decisionNote ?? null,
+        },
+      });
+
+      await queueDoctorNotifications(
+        profileId,
+        request.currentDoctorId,
+        "swap_request",
+        request.id,
+        "swap_request_rejected",
+        {
+          scheduleEntryId: request.scheduleEntryId,
+        }
+      );
+
+      return { success: true };
+    }),
+});
+
 export const appRouter = router({
   admin: adminRouter,
   payments: paymentsRouter,
+  swapRequests: swapRequestsRouter,
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
