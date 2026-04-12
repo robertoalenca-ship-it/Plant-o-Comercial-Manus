@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppBrand from "@/components/AppBrand";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -146,6 +148,13 @@ const faqs = [
 
 export default function Home() {
   const { isAuthenticated, loading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      setLocation(appPath());
+    }
+  }, [isAuthenticated, loading, setLocation]);
   const loginUrl = getLoginUrl();
   const salesContactUrl = getSalesContactUrl();
   const appEntryUrl = appPath();
