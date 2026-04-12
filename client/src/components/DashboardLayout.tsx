@@ -204,14 +204,17 @@ export default function DashboardLayout({
   useEffect(() => {
     if (profilesQuery.isLoading) return;
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
-      if (user.role === "staff" || user.role === "admin") return;
+      if (user.role === "staff" || user.role === "admin") {
+        if (location.startsWith(appPath())) setLocation(STAFF_HOME_PATH);
+        return;
+      }
       const onboardingPath = appPath("/onboarding");
       if (location !== onboardingPath) {
         setLocation(onboardingPath);
       }
       return;
     }
-    if (activeProfileId) return;
+    if (activeProfileId || user?.role === "staff") return;
     const defaultProfile =
       profiles.find((profile) =>
         [
