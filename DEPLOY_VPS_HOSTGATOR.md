@@ -1,65 +1,48 @@
 # Deploy automatico na VPS da HostGator
 
-Este projeto ja esta pronto para subir com Docker e deploy automatico por GitHub Actions.
+Este projeto ja esta pronto para subir com Docker. Na HostGator VPS, o caminho mais estavel e usar deploy automatico na propria VPS via `cron`, sem depender de SSH do GitHub Actions.
 
 Arquivos principais:
 
-- workflow: [deploy-vps.yml](</D:/aPLICATIVOS/Plantão comercial/.github/workflows/deploy-vps.yml>)
-- script da VPS: [deploy.sh](</D:/aPLICATIVOS/Plantão comercial/deploy/vps/deploy.sh>)
+- workflow opcional: [deploy-vps.yml](</D:/aPLICATIVOS/Plantão comercial/.github/workflows/deploy-vps.yml>)
+- script de deploy: [deploy.sh](</D:/aPLICATIVOS/Plantão comercial/deploy/vps/deploy.sh>)
+- auto deploy por cron: [auto-deploy.sh](</D:/aPLICATIVOS/Plantão comercial/deploy/vps/auto-deploy.sh>)
 - template Nginx: [nginx-app.conf](</D:/aPLICATIVOS/Plantão comercial/deploy/vps/nginx-app.conf>)
 - compose atual: [docker-compose.yml](</D:/aPLICATIVOS/Plantão comercial/docker-compose.yml>)
 
 ## 1. Estrategia recomendada
 
-- dominio institucional: `seudominio.com`
+- dominio institucional: `plantaomedico.store`
 - sistema: `app.plantaomedico.store`
 - app Node + frontend: Docker Compose na VPS
 - banco: MySQL em container interno
-- reverse proxy: Nginx no host
-- SSL: Let's Encrypt com Certbot
-- deploy automatico: GitHub Actions via SSH
+- reverse proxy: Apache/cPanel apontando para `127.0.0.1:3001`
+- SSL: AutoSSL do cPanel
+- deploy automatico: `cron` local na VPS
 
 ## 2. DNS na HostGator
 
 Crie um registro `A`:
 
 - host: `app`
-- aponta para: IP publico da VPS
+- aponta para: `129.121.55.97`
 
-Se quiser manter o site principal separado, nao altere o `A` do `@` agora.
+## 3. Projeto na VPS
 
-## 3. Preparacao inicial da VPS
-
-Exemplo para Ubuntu/Debian:
+Diretorio usado:
 
 ```bash
-sudo apt update
-sudo apt install -y git curl nginx certbot python3-certbot-nginx
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
+/var/www/escala-inteligente
 ```
 
-Confirme:
+Depois do clone:
 
 ```bash
-docker --version
-docker compose version
-nginx -v
+cd /var/www/escala-inteligente
+chmod +x deploy/vps/deploy.sh deploy/vps/auto-deploy.sh
 ```
 
-## 4. Clonar o projeto na VPS
-
-Escolha um diretorio fixo, por exemplo:
-
-```bash
-mkdir -p /var/www
-cd /var/www
-git clone <URL_DO_REPOSITORIO> escala-inteligente
-cd escala-inteligente
-```
-
-## 5. Configurar variaveis
+## 4. Configurar variaveis
 
 Crie o arquivo `.env.docker`:
 
@@ -70,7 +53,7 @@ cp .env.docker.vps.example .env.docker
 Ajuste pelo menos:
 
 ```env
-APP_PORT=3000
+APP_PORT=3001
 MYSQL_DATABASE=escala_medica
 MYSQL_USER=escala_user
 MYSQL_PASSWORD=troque-esta-senha
@@ -79,97 +62,80 @@ JWT_SECRET=troque-esta-chave-super-forte
 LOCAL_LOGIN_USERNAME=admin
 LOCAL_LOGIN_PASSWORD=troque-esta-senha
 LOCAL_SESSION_APP_ID=local-auth
-OAUTH_SERVER_URL=
-VITE_OAUTH_PORTAL_URL=
-VITE_APP_ID=
-OWNER_OPEN_ID=
-VITE_ANALYTICS_ENDPOINT=
-VITE_ANALYTICS_WEBSITE_ID=
 VITE_SALES_CONTACT_URL=https://plantaomedico.store
 ```
 
-## 6. Primeiro deploy manual
+## 5. Deploy manual
 
-No primeiro deploy:
+Primeiro deploy:
 
 ```bash
-chmod +x deploy/vps/deploy.sh
+cd /var/www/escala-inteligente
 ./deploy/vps/deploy.sh
 ```
 
-Validacoes:
+Validacao:
 
 ```bash
-curl http://127.0.0.1:3000/healthz
+curl http://127.0.0.1:3001/healthz
 docker compose --env-file .env.docker ps
 ```
 
-## 7. Configurar Nginx
+## 6. Dominio e SSL
 
-Copie o template e ajuste o dominio:
+No seu servidor atual:
 
-```bash
-sudo cp deploy/vps/nginx-app.conf /etc/nginx/sites-available/escala-inteligente
-sudo nano /etc/nginx/sites-available/escala-inteligente
-```
+- `app.plantaomedico.store` ja aponta para a VPS
+- Apache/cPanel ja esta fazendo proxy para `127.0.0.1:3001`
+- o SSL do subdominio ja foi emitido pelo AutoSSL
 
-Troque:
+## 7. Deploy automatico por cron
 
-- `app.plantaomedico.store` se esse for o subdominio final
-
-Ative o site:
+Teste manual do auto deploy:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/escala-inteligente /etc/nginx/sites-enabled/escala-inteligente
-sudo nginx -t
-sudo systemctl reload nginx
+cd /var/www/escala-inteligente
+APP_DIR=/var/www/escala-inteligente APP_BRANCH=main ./deploy/vps/auto-deploy.sh
 ```
 
-## 8. SSL com Let's Encrypt
-
-Depois que o DNS estiver propagado:
+Se estiver tudo certo, adicione no cron do `root`:
 
 ```bash
-sudo certbot --nginx -d app.plantaomedico.store
+crontab -e
 ```
 
-Teste renovacao:
+Linha recomendada:
 
 ```bash
-sudo certbot renew --dry-run
+*/5 * * * * APP_DIR=/var/www/escala-inteligente APP_BRANCH=main /var/www/escala-inteligente/deploy/vps/auto-deploy.sh >> /var/log/escala-auto-deploy.log 2>&1
 ```
 
-## 9. Configurar deploy automatico no GitHub
+Esse fluxo:
 
-Adicione estes secrets no repositorio:
-
-- `VPS_HOST`: IP ou host da VPS
-- `VPS_USER`: usuario SSH
-- `VPS_SSH_KEY`: chave privada usada pela Action
-- `VPS_PORT`: normalmente `22`
-- `VPS_APP_DIR`: ex. `/var/www/escala-inteligente`
-- `APP_DOMAIN`: `app.plantaomedico.store`
-- `VPS_APP_BRANCH`: ex. `main`
-
-O workflow:
-
-- conecta por SSH
-- entra em `VPS_APP_DIR`
-- faz `git pull --ff-only`
+- busca `origin/main`
+- detecta commit novo
+- atualiza o checkout local
 - roda [deploy.sh](</D:/aPLICATIVOS/Plantão comercial/deploy/vps/deploy.sh>)
-- valida `GET /healthz`
+- grava o commit implantado em `.last_deployed_commit`
 
-## 10. Operacao do dia a dia
+## 8. Operacao do dia a dia
 
-Ver logs:
+Ver logs da app:
 
 ```bash
 docker compose --env-file .env.docker logs -f app
 ```
 
-Rebuild manual:
+Ver log do auto deploy:
 
 ```bash
+tail -f /var/log/escala-auto-deploy.log
+```
+
+Rodar deploy manual:
+
+```bash
+cd /var/www/escala-inteligente
 ./deploy/vps/deploy.sh
 ```
 
@@ -179,20 +145,20 @@ Parar ambiente:
 docker compose --env-file .env.docker down
 ```
 
-## 11. Observacoes importantes
+## 9. Observacoes importantes
 
 - O MySQL fica dentro do Docker e nao deve ser exposto publicamente.
-- O Nginx aponta para `127.0.0.1:3000`, nao para a internet direta.
+- O Apache/cPanel aponta para `127.0.0.1:3001`.
 - O container ja executa migrations e bootstrap no start via [docker-start.mjs](</D:/aPLICATIVOS/Plantão comercial/scripts/docker-start.mjs:1>).
-- Se quiser separar banco da app no futuro, basta trocar `DATABASE_URL` para um MySQL externo e ajustar o compose.
+- O workflow do GitHub Actions pode continuar no repositorio, mas na HostGator o cron local e mais confiavel.
 
-## 12. Checklist de go-live
+## 10. Checklist final
 
 - DNS `app.plantaomedico.store` apontando para a VPS
 - `.env.docker` preenchido com senhas fortes
-- primeiro deploy manual executado
-- `curl http://127.0.0.1:3000/healthz` respondendo
-- Nginx ativo
+- deploy manual funcionando
+- `curl http://127.0.0.1:3001/healthz` respondendo
+- Apache proxy funcionando
 - SSL emitido
-- GitHub secrets configurados
-- push na `main` validando deploy automatico
+- `APP_DIR=/var/www/escala-inteligente APP_BRANCH=main ./deploy/vps/auto-deploy.sh` funcionando
+- cron ativo
