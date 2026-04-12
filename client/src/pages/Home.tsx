@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { Redirect, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppBrand from "@/components/AppBrand";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -150,14 +150,21 @@ export default function Home() {
   const { isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
 
+  const appEntryUrl = appPath();
+
+  // Redirect if authenticated
+  if (!loading && isAuthenticated) {
+    return <Redirect to={appEntryUrl} />;
+  }
+
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      setLocation(appPath());
+      setLocation(appEntryUrl);
     }
-  }, [isAuthenticated, loading, setLocation]);
+  }, [isAuthenticated, loading, setLocation, appEntryUrl]);
+
   const loginUrl = getLoginUrl();
   const salesContactUrl = getSalesContactUrl();
-  const appEntryUrl = appPath();
   const primaryUrl =
     !loading && !isAuthenticated && loginUrl ? loginUrl : appEntryUrl;
   const primaryLabel = loading
@@ -428,7 +435,7 @@ export default function Home() {
                   Ideal para coordenadores, chefes de servico e secretaria da escala
                 </div>
                 <p className="mt-2 text-sm leading-6 text-emerald-800/90 dark:text-emerald-200/90">
-                  O sistema se posiciona como gestao de escala por equipe, nao como prontuario, ERP ou plataforma hospitalar completa.
+                  O sistema se posiciona as gestao de escala por equipe, nao as prontuario, ERP ou plataforma hospitalar completa.
                 </p>
               </div>
             </div>

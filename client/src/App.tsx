@@ -30,6 +30,7 @@ import {
   isStaffRoute,
 } from "./lib/appRoutes";
 import StaffDashboard from "./pages/StaffDashboard";
+import { useAuth } from "./_core/hooks/useAuth";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -112,7 +113,15 @@ function LegacyRouteRedirect({ to }: { to: string }) {
 }
 
 function Router() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (location === "/" && !loading && isAuthenticated) {
+      setLocation(appPath());
+    }
+  }, [location, loading, isAuthenticated, setLocation]);
+
   const legacyTarget = LEGACY_APP_ROUTE_REDIRECTS[location];
 
   if (legacyTarget) {
