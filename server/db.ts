@@ -533,8 +533,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     values.role = user.role;
     updateSet.role = user.role;
   } else if (user.openId === ENV.ownerOpenId) {
-    values.role = "admin";
-    updateSet.role = "admin";
+    values.role = "staff";
+    updateSet.role = "staff";
   }
 
   if (!values.lastSignedIn) values.lastSignedIn = new Date();

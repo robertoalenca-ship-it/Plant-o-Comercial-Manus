@@ -447,7 +447,7 @@ function DashboardLayoutContent({
     const items = [...menuItems];
     
     // Links para Staff (Dono do SaaS)
-    if (user?.role === 'staff') {
+    if (user?.role === 'staff' || user?.role === 'admin') {
       items.unshift({ icon: Shield, label: "Master Dashboard", path: STAFF_HOME_PATH });
     }
 
