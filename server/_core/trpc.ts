@@ -9,6 +9,15 @@ import { hasProfileAccess } from "../db";
 import type { TrpcContext } from "./context";
 import type { User } from "../../drizzle/schema";
 
+type AuthenticatedContext = TrpcContext & {
+  user: User;
+};
+
+type ProfileContext = AuthenticatedContext & {
+  scheduleProfileId: number;
+  profileRole?: "owner" | "admin" | "viewer";
+};
+
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
 });
@@ -23,11 +32,13 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
+  const authenticatedCtx: AuthenticatedContext = {
+    ...ctx,
+    user: ctx.user,
+  };
+
   return next({
-    ctx: {
-      ...ctx,
-      user: ctx.user as User,
-    },
+    ctx: authenticatedCtx,
   });
 });
 
@@ -59,13 +70,15 @@ const requireScheduleProfile = t.middleware(async (opts) => {
     profileRole = accessInfo.role;
   }
 
+  const profileCtx: ProfileContext = {
+    ...ctx,
+    user: ctx.user as User,
+    scheduleProfileId: ctx.scheduleProfileId,
+    profileRole,
+  };
+
   return next({
-    ctx: {
-      ...ctx,
-      user: ctx.user as User,
-      scheduleProfileId: ctx.scheduleProfileId as number,
-      profileRole,
-    },
+    ctx: profileCtx,
   });
 });
 
@@ -93,15 +106,29 @@ export const managerProcedure = t.procedure.use(
 export const managerProfileProcedure = profileProcedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
+    const user = ctx.user;
 
-    const isGlobalManager = ["admin", "coordinator", "staff"].includes(ctx.user.role);
+    if (!user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+
+    const profileCtx: ProfileContext = {
+      ...ctx,
+      user,
+      scheduleProfileId: ctx.scheduleProfileId as number,
+      profileRole: ctx.profileRole,
+    };
+
+    const isGlobalManager = ["admin", "coordinator", "staff"].includes(user.role);
     const isProfileManager = ["owner", "admin"].includes(ctx.profileRole ?? "");
 
     if (!isGlobalManager && !isProfileManager) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    return next();
+    return next({
+      ctx: profileCtx,
+    });
   })
 );
 

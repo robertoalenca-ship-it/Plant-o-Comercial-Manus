@@ -96,6 +96,8 @@ function StaffShell() {
       <Switch>
         <Route path={STAFF_HOME_PATH} component={StaffDashboard} />
         <Route path={staffPath("/dashboard")} component={StaffDashboard} />
+        <Route path={staffPath("/users")} component={StaffDashboard} />
+        <Route path={staffPath("/analytics")} component={StaffDashboard} />
         <Route component={NotFound} />
       </Switch>
     </StaffLayout>

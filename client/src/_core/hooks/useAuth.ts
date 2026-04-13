@@ -1,4 +1,5 @@
 import { clearStoredScheduleProfileId } from "@/lib/scheduleProfile";
+import { appPath } from "@/lib/appRoutes";
 import { disableSupportMode } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
@@ -10,7 +11,7 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = "/" } =
+  const { redirectOnUnauthenticated = false, redirectPath = appPath() } =
     options ?? {};
   const utils = trpc.useUtils();
 

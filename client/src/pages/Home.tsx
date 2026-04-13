@@ -12,8 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getLoginUrl, getSalesContactUrl } from "@/const";
-import { appPath } from "@/lib/appRoutes";
+import { getSalesContactUrl } from "@/const";
+import { appPath, STAFF_HOME_PATH } from "@/lib/appRoutes";
 import {
   ArrowRight,
   BarChart3,
@@ -163,17 +163,13 @@ export default function Home() {
     return <Redirect to={appEntryUrl} />;
   }
 
-  const loginUrl = getLoginUrl();
   const salesContactUrl = getSalesContactUrl();
-  const primaryUrl =
-    !loading && !isAuthenticated && loginUrl ? loginUrl : appEntryUrl;
+  const primaryUrl = appPath();
   const primaryLabel = loading
     ? "Carregando..."
     : isAuthenticated
       ? "Abrir aplicativo"
-      : loginUrl
-        ? "Entrar com Google"
-        : "Entrar no sistema";
+      : "Entrar no sistema";
   const salesIsExternal = Boolean(
     salesContactUrl && !salesContactUrl.startsWith("/")
   );
