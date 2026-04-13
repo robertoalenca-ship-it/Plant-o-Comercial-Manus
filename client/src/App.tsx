@@ -128,11 +128,31 @@ function Router() {
   }, [location, loading, isAuthenticated, user?.role, setLocation]);
 
   const legacyTarget = LEGACY_APP_ROUTE_REDIRECTS[location];
-
   if (legacyTarget) {
     return <LegacyRouteRedirect to={legacyTarget} />;
   }
 
+  // CENTRALIZED MASTER/STAFF GUARDS
+  if (user?.role === "staff") {
+    // 1. Block Home path (Home component) for Staff, force to Master Panel
+    if (location === "/") {
+      return <Home />; // Let Home handle its own redirect if needed, but we prefer declarative here
+    }
+
+    // 2. Block Onboarding path for Staff
+    if (location === appPath("/onboarding")) {
+      setLocation(STAFF_HOME_PATH);
+      return null;
+    }
+
+    // 3. Block any app route for Staff if no profile is active
+    if (isAppRoute(location) && !activeProfileId && location !== appPath("/onboarding")) {
+      setLocation(STAFF_HOME_PATH);
+      return null;
+    }
+  }
+
+  // REGULAR ROUTES
   if (location === "/") {
     return <Home />;
   }
@@ -143,21 +163,6 @@ function Router() {
 
   if (location === "/invite-accept") {
     return <InviteAccept />;
-  }
-
-  // REDIRECT GUARDS FOR MASTER (STAFF)
-  if (user?.role === "staff") {
-    // If staff tries to access onboarding, block and redirect to staff panel
-    if (location === appPath("/onboarding")) {
-      setLocation(STAFF_HOME_PATH);
-      return null;
-    }
-
-    // If staff tries to access ANY app route without a specific profile, force redirect to staff panel
-    if (isAppRoute(location) && !activeProfileId && location !== appPath("/onboarding")) {
-      setLocation(STAFF_HOME_PATH);
-      return null;
-    }
   }
 
   if (isAppRoute(location)) {
