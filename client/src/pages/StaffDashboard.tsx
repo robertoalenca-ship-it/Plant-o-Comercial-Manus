@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
-import { appPath } from "@/lib/appRoutes";
+import { supportPath } from "@/lib/appRoutes";
 import { enableSupportMode } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
@@ -113,7 +113,7 @@ export default function StaffDashboard() {
   const handleAccessProfile = (profileId: number) => {
     setActiveProfileId(profileId);
     enableSupportMode(profileId);
-    setLocation(appPath());
+    setLocation(supportPath());
   };
 
   const stats = statsQuery.data || { totalUsers: 0, totalProfiles: 0, totalEntries: 0, premiumUsers: 0 };

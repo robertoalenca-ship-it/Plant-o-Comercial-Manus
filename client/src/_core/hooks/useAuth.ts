@@ -42,6 +42,9 @@ export function useAuth(options?: UseAuthOptions) {
       disableSupportMode();
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
+      if (typeof window !== "undefined") {
+        window.location.href = appPath();
+      }
     }
   }, [logoutMutation, utils]);
 

@@ -28,9 +28,12 @@ import {
   STAFF_HOME_PATH,
   staffPath,
   isStaffRoute,
+  supportPath,
+  isSupportRoute,
 } from "./lib/appRoutes";
 import StaffDashboard from "./pages/StaffDashboard";
 import StaffLayout from "./components/StaffLayout";
+import StaffSupportLayout from "./components/StaffSupportLayout";
 import { useAuth } from "./_core/hooks/useAuth";
 import { disableSupportMode, isSupportModeEnabled } from "./lib/supportAccess";
 
@@ -104,6 +107,20 @@ function StaffShell() {
   );
 }
 
+function SupportShell() {
+  return (
+    <StaffSupportLayout>
+      <Switch>
+        <Route path={supportPath()} component={Dashboard} />
+        <Route path={supportPath("/calendar")} component={Calendar} />
+        <Route path={supportPath("/admin")} component={AdminPanel} />
+        <Route path={supportPath("/settings")} component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    </StaffSupportLayout>
+  );
+}
+
 function LegacyRouteRedirect({ to }: { to: string }) {
   const [location, setLocation] = useLocation();
 
@@ -141,9 +158,24 @@ function Router() {
   if (user?.role === "staff") {
     const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
 
-    if (isAppRoute(location) && canAccessClientContext) {
-      // support mode enabled explicitly from the master panel
-    } else if (!isStaffRoute(location)) {
+    if (isAppRoute(location)) {
+      setLocation(
+        canAccessClientContext
+          ? supportPath(location.slice(APP_HOME_PATH.length))
+          : STAFF_HOME_PATH
+      );
+      return null;
+    }
+
+    if (isSupportRoute(location) && !canAccessClientContext) {
+      if (supportModeActive && !activeProfileId) {
+        disableSupportMode();
+      }
+      setLocation(STAFF_HOME_PATH);
+      return null;
+    }
+
+    if (!isStaffRoute(location) && !isSupportRoute(location)) {
       if (supportModeActive && !activeProfileId) {
         disableSupportMode();
       }
@@ -171,6 +203,10 @@ function Router() {
 
   if (isStaffRoute(location)) {
     return <StaffShell key="staff-shell" />;
+  }
+
+  if (isSupportRoute(location)) {
+    return <SupportShell key="support-shell" />;
   }
 
   return <NotFound />;
