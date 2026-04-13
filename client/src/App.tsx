@@ -156,11 +156,11 @@ function Router() {
   }
 
   if (isAppRoute(location)) {
-    return <AppShell />;
+    return <AppShell key="app-shell" />;
   }
 
   if (isStaffRoute(location)) {
-    return <StaffShell />;
+    return <StaffShell key="staff-shell" />;
   }
 
   return <NotFound />;

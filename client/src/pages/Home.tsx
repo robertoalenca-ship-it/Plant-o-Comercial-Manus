@@ -152,16 +152,16 @@ export default function Home() {
 
   const appEntryUrl = user?.role === "staff" ? STAFF_HOME_PATH : appPath();
 
-  // Redirect if authenticated
-  if (!loading && isAuthenticated) {
-    return <Redirect to={appEntryUrl} />;
-  }
-
   useEffect(() => {
     if (!loading && isAuthenticated) {
       setLocation(appEntryUrl);
     }
   }, [isAuthenticated, loading, setLocation, appEntryUrl]);
+
+  // Redirect if authenticated (Moved AFTER hooks to avoid Error #300)
+  if (!loading && isAuthenticated) {
+    return <Redirect to={appEntryUrl} />;
+  }
 
   const loginUrl = getLoginUrl();
   const salesContactUrl = getSalesContactUrl();
