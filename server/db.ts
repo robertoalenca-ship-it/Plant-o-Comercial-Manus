@@ -930,9 +930,9 @@ export async function listScheduleProfiles(
   return profiles.filter((p) => linkedProfileIds.has(p.id));
 }
 
-export async function hasProfileAccess(userId: number, profileId: number): Promise<boolean> {
+export async function hasProfileAccess(userId: number, profileId: number): Promise<{ hasAccess: boolean; role?: "owner" | "admin" | "viewer" }> {
   const db = await getDb();
-  if (!db) return true; // fallback pro offline onde o admin (id 0) vê tudo
+  if (!db) return { hasAccess: true, role: "owner" }; // fallback pro offline onde o admin (id 0) vê tudo
   
   const link = await db
     .select()
@@ -940,7 +940,12 @@ export async function hasProfileAccess(userId: number, profileId: number): Promi
     .where(and(eq(userProfiles.userId, userId), eq(userProfiles.profileId, profileId)))
     .limit(1);
 
-  return link.length > 0;
+  if (link.length === 0) return { hasAccess: false };
+
+  return { 
+    hasAccess: true, 
+    role: link[0].role as "owner" | "admin" | "viewer" 
+  };
 }
 
 export async function getScheduleProfileById(id: number) {

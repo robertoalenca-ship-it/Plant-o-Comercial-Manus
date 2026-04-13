@@ -43,14 +43,20 @@ const requireScheduleProfile = t.middleware(async (opts) => {
     });
   }
 
+  let profileRole: "owner" | "admin" | "viewer" | undefined;
+
   if (ctx.user) {
-    const hasAccess = await hasProfileAccess(ctx.user.id, ctx.scheduleProfileId);
-    if (!hasAccess && ctx.user.role !== "admin") {
+    const accessInfo = await hasProfileAccess(ctx.user.id, ctx.scheduleProfileId);
+    
+    // staff and admin are allowed bypass for global management
+    if (!accessInfo.hasAccess && !["admin", "staff"].includes(ctx.user.role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Voce não tem permissão para acessar o contexto desta clínica.",
       });
     }
+
+    profileRole = accessInfo.role;
   }
 
   return next({
@@ -58,6 +64,7 @@ const requireScheduleProfile = t.middleware(async (opts) => {
       ...ctx,
       user: ctx.user as User,
       scheduleProfileId: ctx.scheduleProfileId as number,
+      profileRole,
     },
   });
 });
@@ -68,7 +75,7 @@ export const managerProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || !["admin", "coordinator"].includes(ctx.user.role)) {
+    if (!ctx.user || !["admin", "coordinator", "staff"].includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -81,15 +88,28 @@ export const managerProcedure = t.procedure.use(
   }),
 );
 
-export const managerProfileProcedure = managerProcedure.use(
-  requireScheduleProfile
+// managerProfileProcedure allows access if user is a GLOBAL manager
+// OR if they have manager permissions (owner/admin) WITHIN that profile.
+export const managerProfileProcedure = profileProcedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next } = opts;
+
+    const isGlobalManager = ["admin", "coordinator", "staff"].includes(ctx.user.role);
+    const isProfileManager = ["owner", "admin"].includes(ctx.profileRole ?? "");
+
+    if (!isGlobalManager && !isProfileManager) {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+
+    return next();
+  })
 );
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user || !['admin', 'staff'].includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

@@ -13,6 +13,7 @@ export type TrpcContext = {
   res: CreateExpressContextOptions["res"];
   user: User | null;
   scheduleProfileId: number | null;
+  profileRole?: "owner" | "admin" | "viewer";
 };
 
 const LOCAL_DEV_OPEN_ID = "__local_dev_admin__";
