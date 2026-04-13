@@ -5,7 +5,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { ScheduleProfileProvider } from "./contexts/ScheduleProfileContext";
+import { ScheduleProfileProvider, useScheduleProfile } from "./contexts/ScheduleProfileContext";
 import DashboardLayout from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";

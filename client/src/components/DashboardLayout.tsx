@@ -690,6 +690,16 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset className="app-main-shell overflow-hidden bg-background flex flex-col">
+        {/* DIAGNOSTIC BAR - INICIO */}
+        <div className="bg-red-600 text-white px-4 py-1.5 text-[10px] sm:text-xs font-mono flex flex-wrap items-center justify-center gap-x-4 border-b border-red-700 shadow-md z-[100] uppercase tracking-wider">
+          <span className="font-bold flex items-center gap-1"><Shield className="h-3 w-3" /> DIAGNÓSTICO:</span>
+          <span className="bg-red-800 px-2 rounded">ROLE: {user?.role || "null"}</span>
+          <span className="bg-red-800 px-2 rounded">USER: {user?.email || "anon"}</span>
+          <span className="bg-red-800 px-2 rounded">PROFILE: {activeProfileId || "nenhum"}</span>
+          <span className="bg-red-400/20 px-2 rounded text-red-100">BUILD: 12-ABR-2026-20H55</span>
+        </div>
+        {/* DIAGNOSTIC BAR - FIM */}
+
         {user && !user.isPaid && (
           <div className="bg-amber-500/10 text-amber-600 px-4 py-2 text-sm flex items-center justify-between border-b border-amber-500/20 shrink-0">
             <div className="flex items-center gap-2">
