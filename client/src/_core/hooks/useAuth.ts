@@ -1,5 +1,6 @@
 import { getLoginUrl } from "@/const";
 import { clearStoredScheduleProfileId } from "@/lib/scheduleProfile";
+import { disableSupportMode } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
@@ -38,6 +39,7 @@ export function useAuth(options?: UseAuthOptions) {
       throw error;
     } finally {
       clearStoredScheduleProfileId();
+      disableSupportMode();
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }

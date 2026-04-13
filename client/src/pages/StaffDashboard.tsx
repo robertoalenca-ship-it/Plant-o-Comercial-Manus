@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
+import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
+import { appPath } from "@/lib/appRoutes";
+import { enableSupportMode } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
   Table,
@@ -41,12 +45,15 @@ import {
   Calendar as CalendarIcon,
   TrendingUp,
   AlertCircle,
-  Mail
+  Mail,
+  LogIn
 } from "lucide-react";
 
 export default function StaffDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [profileSearch, setProfileSearch] = useState("");
+  const [, setLocation] = useLocation();
+  const { setActiveProfileId } = useScheduleProfile();
   
   // Queries
   const statsQuery = trpc.saasAdmin.getStats.useQuery();
@@ -101,6 +108,12 @@ export default function StaffDashboard() {
       maxProfiles,
       role: newRole,
     });
+  };
+
+  const handleAccessProfile = (profileId: number) => {
+    setActiveProfileId(profileId);
+    enableSupportMode(profileId);
+    setLocation(appPath());
   };
 
   const stats = statsQuery.data || { totalUsers: 0, totalProfiles: 0, totalEntries: 0, premiumUsers: 0 };
@@ -306,7 +319,8 @@ export default function StaffDashboard() {
                     <TableHead>Hospital / Equipe</TableHead>
                     <TableHead>Proprietário</TableHead>
                     <TableHead>Data Criação</TableHead>
-                    <TableHead className="text-right">Status</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">AÃ§Ãµes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -320,14 +334,25 @@ export default function StaffDashboard() {
                         </div>
                       </TableCell>
                       <TableCell>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Ativo</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => handleAccessProfile(p.id)}
+                        >
+                          <LogIn className="h-3.5 w-3.5 mr-1" />
+                          Acessar como suporte
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                   {filteredProfiles?.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                         Nenhuma unidade encontrada.
                       </TableCell>
                     </TableRow>

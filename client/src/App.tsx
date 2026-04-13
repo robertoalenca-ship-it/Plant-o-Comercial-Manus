@@ -32,6 +32,7 @@ import {
 import StaffDashboard from "./pages/StaffDashboard";
 import StaffLayout from "./components/StaffLayout";
 import { useAuth } from "./_core/hooks/useAuth";
+import { disableSupportMode, isSupportModeEnabled } from "./lib/supportAccess";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -117,6 +118,7 @@ function Router() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, loading } = useAuth();
   const { activeProfileId } = useScheduleProfile();
+  const supportModeActive = isSupportModeEnabled();
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
@@ -135,8 +137,14 @@ function Router() {
 
   // REDIRECT GUARDS FOR MASTER (STAFF)
   if (user?.role === "staff") {
-    // 1. If staff is on non-staff route (like app, onboarding, home), redirect to Master Panel
-    if (!isStaffRoute(location)) {
+    const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
+
+    if (isAppRoute(location) && canAccessClientContext) {
+      // support mode enabled explicitly from the master panel
+    } else if (!isStaffRoute(location)) {
+      if (supportModeActive && !activeProfileId) {
+        disableSupportMode();
+      }
       setLocation(STAFF_HOME_PATH);
       return null;
     }

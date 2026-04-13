@@ -23,6 +23,7 @@ import { getLoginUrl, getSalesContactUrl } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
 import { appPath, STAFF_HOME_PATH, isStaffRoute } from "@/lib/appRoutes";
+import { disableSupportMode, isSupportModeEnabled } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -38,6 +39,7 @@ import {
   Shield,
   Stethoscope,
   Sun,
+  Undo2,
   Users,
   Zap,
 } from "lucide-react";
@@ -131,6 +133,7 @@ export default function DashboardLayout({
   const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const { loading, user } = useAuth();
   const [location, setLocation] = useLocation();
+  const supportModeActive = user?.role === "staff" && isSupportModeEnabled();
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -197,7 +200,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (profilesQuery.isLoading) return;
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
-      if (user.role === "staff" || user.role === "admin") {
+      if (user.role === "staff") {
         if (location.startsWith(appPath())) setLocation(STAFF_HOME_PATH);
         return;
       }
@@ -451,6 +454,7 @@ function DashboardLayoutContent({
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
+  const supportModeActive = user?.role === "staff" && isSupportModeEnabled();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -537,6 +541,32 @@ function DashboardLayoutContent({
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-64">
+                        {user?.role === "staff" ? (
+                          <>
+                            <div className="px-3 py-2">
+                              <p className="text-sm font-medium text-foreground">
+                                Modo suporte ativo
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                O acesso operacional do perfil master fica isolado
+                                nesta unidade. Para trocar de cliente, volte ao
+                                painel master.
+                              </p>
+                            </div>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                disableSupportMode();
+                                onSelectProfile(null);
+                                setLocation(STAFF_HOME_PATH);
+                              }}
+                              className="cursor-pointer border-t mt-1"
+                            >
+                              <Undo2 className="mr-2 h-4 w-4" />
+                              Voltar ao painel master
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
                         {profiles.map((profile) => (
                           <DropdownMenuItem
                             key={profile.id}
@@ -588,6 +618,8 @@ function DashboardLayoutContent({
                           <Settings className="mr-2 h-4 w-4" />
                           Gerenciar licenças
                         </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -681,6 +713,31 @@ function DashboardLayoutContent({
               onClick={() => setLocation(appPath("/upgrade"))}
             >
               Fazer Upgrade
+            </Button>
+          </div>
+        )}
+        {supportModeActive && (
+          <div className="bg-sky-500/10 text-sky-700 px-4 py-2 text-sm flex items-center justify-between border-b border-sky-500/20 shrink-0">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span>
+                VocÃª estÃ¡ em <strong>modo suporte</strong> na unidade{" "}
+                <strong>{activeProfileName}</strong>. O painel operacional foi
+                aberto apenas para intervenÃ§Ã£o pontual.
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-800"
+              onClick={() => {
+                disableSupportMode();
+                onSelectProfile(null);
+                setLocation(STAFF_HOME_PATH);
+              }}
+            >
+              <Undo2 className="h-3.5 w-3.5 mr-1" />
+              Voltar ao painel master
             </Button>
           </div>
         )}
