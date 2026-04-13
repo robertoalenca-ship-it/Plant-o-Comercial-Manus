@@ -30,6 +30,7 @@ import {
   isStaffRoute,
 } from "./lib/appRoutes";
 import StaffDashboard from "./pages/StaffDashboard";
+import StaffLayout from "./components/StaffLayout";
 import { useAuth } from "./_core/hooks/useAuth";
 
 function OptionalAnalytics() {
@@ -90,13 +91,13 @@ function AppShell() {
 
 function StaffShell() {
   return (
-    <DashboardLayout>
+    <StaffLayout>
       <Switch>
         <Route path={STAFF_HOME_PATH} component={StaffDashboard} />
         <Route path={staffPath("/dashboard")} component={StaffDashboard} />
         <Route component={NotFound} />
       </Switch>
-    </DashboardLayout>
+    </StaffLayout>
   );
 }
 
@@ -132,21 +133,10 @@ function Router() {
     return <LegacyRouteRedirect to={legacyTarget} />;
   }
 
-  // CENTRALIZED MASTER/STAFF GUARDS
+  // REDIRECT GUARDS FOR MASTER (STAFF)
   if (user?.role === "staff") {
-    // 1. Block Home path (Home component) for Staff, force to Master Panel
-    if (location === "/") {
-      return <Home />; // Let Home handle its own redirect if needed, but we prefer declarative here
-    }
-
-    // 2. Block Onboarding path for Staff
-    if (location === appPath("/onboarding")) {
-      setLocation(STAFF_HOME_PATH);
-      return null;
-    }
-
-    // 3. Block any app route for Staff if no profile is active
-    if (isAppRoute(location) && !activeProfileId && location !== appPath("/onboarding")) {
+    // 1. If staff is on non-staff route (like app, onboarding, home), redirect to Master Panel
+    if (!isStaffRoute(location)) {
       setLocation(STAFF_HOME_PATH);
       return null;
     }

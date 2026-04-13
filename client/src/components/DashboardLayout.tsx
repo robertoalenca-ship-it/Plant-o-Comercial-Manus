@@ -58,12 +58,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const menuItems = [
-  { 
-    icon: Shield, 
-    label: "Painel Master (SaaS)", 
-    path: STAFF_HOME_PATH,
-    roles: ['staff', 'admin'] 
-  },
   { icon: LayoutDashboard, label: "Dashboard", path: appPath() },
   { icon: CalendarDays, label: "Calendario", path: appPath("/calendar") },
   { icon: Users, label: "Equipe", path: appPath("/doctors") },
@@ -80,7 +74,6 @@ const menuItems = [
     icon: Users, 
     label: "Equipe da Unidade", 
     path: appPath("/admin"),
-    roles: ['staff', 'admin']
   },
 ];
 
@@ -406,8 +399,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Show skeleton if context is loading or if we are in app mode without a profile
-  const shouldShowSkeleton = !activeProfile && !isStaffRoute(location);
+  // Show skeleton if context is loading (no active profile in app mode)
+  const shouldShowSkeleton = !activeProfile;
 
   if (shouldShowSkeleton) {
     return <DashboardLayoutSkeleton />;
@@ -463,24 +456,11 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const allMenuItems = useMemo(() => {
-    const isStaff = isStaffRoute(location);
-
     return menuItems.filter((item) => {
-      const isSaaSItem =
-        item.roles?.includes("staff") || item.path === STAFF_HOME_PATH;
-
-      // No modo Master (SaaS), mostrar apenas ferramentas Master
-      if (isStaff) {
-        return isSaaSItem;
-      }
-
-      // No modo Clínico (App), esconder ferramentas Master
-      if (isSaaSItem) return false;
-
       // Só mostra ferramentas operacionais se tiver uma clínica selecionada (activeProfileId)
       return !!activeProfileId || item.path === appPath("/onboarding");
     });
-  }, [user?.role, location, activeProfileId]);
+  }, [activeProfileId]);
 
   const activeMenuItem = allMenuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
@@ -614,12 +594,6 @@ function DashboardLayoutContent({
                 )}
               </div>
               
-              {!isCollapsed && user?.role === "staff" && isStaffRoute(location) && (
-                <div className="mx-2 rounded-lg bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 flex items-center shadow-sm border border-orange-500/20">
-                  <Shield className="mr-2 h-3.5 w-3.5" />
-                  Painel Master SaaS
-                </div>
-              )}
             </div>
           </SidebarHeader>
 
