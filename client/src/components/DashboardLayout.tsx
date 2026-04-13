@@ -463,12 +463,34 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
-  const allMenuItems = useMemo(() => {
+  const baseMenuItems = useMemo(() => {
     return menuItems.filter((item) => {
       // Só mostra ferramentas operacionais se tiver uma clínica selecionada (activeProfileId)
       return !!activeProfileId || item.path === appPath("/onboarding");
     });
   }, [activeProfileId]);
+
+  const allMenuItems = useMemo(() => {
+    if (!supportModeActive) {
+      return baseMenuItems;
+    }
+
+    return baseMenuItems.map((item) => {
+      if (item.path === appPath()) {
+        return { ...item, label: "Resumo da Unidade" };
+      }
+
+      if (item.path === appPath("/calendar")) {
+        return { ...item, label: "Calendario da Unidade" };
+      }
+
+      if (item.path === appPath("/admin")) {
+        return { ...item, label: "Acessos da Unidade" };
+      }
+
+      return item;
+    });
+  }, [baseMenuItems, supportModeActive]);
 
   const activeMenuItem = allMenuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
@@ -533,13 +555,30 @@ function DashboardLayoutContent({
                       <DropdownMenuTrigger asChild>
                         <button className="flex w-full items-start justify-between rounded-xl border border-border/50 bg-accent/20 px-3 py-3 text-left transition-colors hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                           <div className="min-w-0">
-                            <AppBrand compact hideSubtitle />
-                            <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
-                              Equipe ativa
-                            </p>
-                            <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-                              {activeProfileName || "Nenhuma selecionada"}
-                            </p>
+                            {supportModeActive ? (
+                              <>
+                                <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 w-fit">
+                                  <Shield className="h-3 w-3" />
+                                  Painel Master
+                                </div>
+                                <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
+                                  Unidade em suporte
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+                                  {activeProfileName || "Nenhuma selecionada"}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <AppBrand compact hideSubtitle />
+                                <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60">
+                                  Equipe ativa
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+                                  {activeProfileName || "Nenhuma selecionada"}
+                                </p>
+                              </>
+                            )}
                           </div>
                           <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-sidebar-foreground/65" />
                         </button>
@@ -659,6 +698,25 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
+            {supportModeActive ? (
+              <div className="px-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    disableSupportMode();
+                    onSelectProfile(null);
+                    setLocation(STAFF_HOME_PATH);
+                  }}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Painel Master (SaaS)
+                </Button>
+                <p className="px-2 pt-3 text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">
+                  Ferramentas da unidade
+                </p>
+              </div>
+            ) : null}
             <SidebarMenu className="px-2 py-1">
               {allMenuItems.map((item) => {
                 const isActive = location === item.path;
@@ -698,7 +756,9 @@ function DashboardLayoutContent({
                       {user?.name || "-"}
                     </p>
                     <p className="mt-1.5 truncate text-xs text-muted-foreground">
-                      {user?.email || "-"}
+                      {supportModeActive
+                        ? "Administrador SaaS em suporte"
+                        : user?.email || "-"}
                     </p>
                   </div>
                 </button>
