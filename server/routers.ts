@@ -239,6 +239,9 @@ const saasAdminRouter = router({
       });
       return { success: true };
     }),
+  syncDatabase: staffProcedure.mutation(async () => {
+    return await repairDatabaseSchema();
+  }),
 });
 
 /**

@@ -20,12 +20,16 @@ import {
 } from "@/components/ui/sidebar";
 import { STAFF_HOME_PATH } from "@/lib/appRoutes";
 import {
+  Database,
   LayoutDashboard,
   LogOut,
   PanelLeft,
+  RefreshCw,
   Shield,
   Users,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import {
   CSSProperties,
   ReactNode,
@@ -101,6 +105,28 @@ function StaffLayoutContent({
   const { toggleSidebar, state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const sidebarRef = useRef<HTMLDivElement>(null);
+  
+  const syncMutation = trpc.saasAdmin.syncDatabase.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message, {
+          duration: 5000,
+          description: data.results?.join("\n")
+        });
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error) => {
+      toast.error("Erro ao sincronizar banco: " + error.message);
+    }
+  });
+
+  const handleSyncDatabase = () => {
+    if (confirm("Deseja sincronizar as colunas do banco de dados agora? Isso resolverá erros de 'Failed query' na VPS.")) {
+      syncMutation.mutate();
+    }
+  };
 
   const activeMenuItem = staffMenuItems.find((item) => item.path === location);
 
@@ -161,8 +187,25 @@ function StaffLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3 space-y-2">
-            <div className="flex items-center justify-between px-1 group-data-[collapsible=icon]:justify-center">
+            <div className="flex flex-col gap-2 px-1 group-data-[collapsible=icon]:items-center">
               <ThemeToggle variant="ghost" size="icon" className="h-8 w-8" />
+              <button
+                onClick={handleSyncDatabase}
+                disabled={syncMutation.isPending}
+                className="flex items-center gap-2 rounded-md bg-orange-500/10 px-2 py-1.5 text-[11px] font-medium text-orange-600 transition-colors hover:bg-orange-500/20 disabled:opacity-50 dark:text-orange-400 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+                title="Sincronizar Banco de Dados"
+              >
+                {syncMutation.isPending ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Database className="h-3.5 w-3.5" />
+                )}
+                {!isCollapsed && (
+                  <span>
+                    {syncMutation.isPending ? "Sincronizando..." : "Sincronizar Banco"}
+                  </span>
+                )}
+              </button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -2348,10 +2348,84 @@ export async function updateUserSubscription(userId: number, data: Partial<{
   maxProfiles: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updateUserSubscription(userId: number, data: Partial<{
+  isPaid: boolean;
+  maxProfiles: number;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   subscriptionStatus: string | null;
   role: typeof users.$inferSelect["role"];
 }>) {
   const db = await getDb();
   if (!db) return;
   await db.update(users).set(data).where(eq(users.id, userId));
+}
+
+/**
+ * UTILITY: Força a sincronização das colunas faltantes na VPS (HostGator)
+ * Isso resolve o erro de "Failed query: select profileId..."
+ */
+export async function repairDatabaseSchema() {
+  const db = await getDb();
+  if (!db) return { success: false, message: "Modo offline não suporta reparo de banco." };
+
+  const tablesToUpdate = [
+    "doctors",
+    "fixed_unavailabilities",
+    "date_unavailabilities",
+    "weekly_rules",
+    "weekend_rules",
+    "monthly_exceptions",
+    "schedules",
+    "schedule_entries",
+    "swap_requests",
+    "notification_dispatches",
+    "audit_logs"
+  ];
+
+  const results: string[] = [];
+
+  for (const table of tablesToUpdate) {
+    try {
+      // Tenta adicionar profileId se não existir
+      await db.execute(sql.raw(`ALTER TABLE \`${table}\` ADD COLUMN \`profileId\` INT NOT NULL DEFAULT 1`));
+      results.push(`Tabela ${table}: Coluna 'profileId' adicionada.`);
+    } catch (error) {
+      // Ignora erro de coluna já existente
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        const msg = (error as any).message;
+        if (msg.includes("Duplicate column name") || msg.includes("already exists")) {
+          // Já existe, tudo bem
+        } else {
+          results.push(`Tabela ${table}: Erro ao tentar adicionar profileId: ${msg}`);
+        }
+      }
+    }
+
+    // Tabela doctors precisa da coluna 'ativo' também se for muito antiga
+    if (table === "doctors") {
+      try {
+        await db.execute(sql.raw(`ALTER TABLE \`doctors\` ADD COLUMN \`ativo\` BOOLEAN NOT NULL DEFAULT 1`));
+        results.push(`Tabela doctors: Coluna 'ativo' adicionada.`);
+      } catch (error) {
+        // Ignora erro de coluna já existente
+      }
+    }
+  }
+
+  // Reseta o cache de detecção de esquema para forçar revalidação
+  _hasProfileSchema = null;
+  
+  return { 
+    success: true, 
+    results, 
+    message: "Processo de sincronização concluído. Tente acessar a clínica novamente." 
+  };
 }
