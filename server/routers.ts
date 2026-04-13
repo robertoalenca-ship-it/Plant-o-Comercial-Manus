@@ -37,6 +37,7 @@ import {
   deleteException,
   deleteFixedUnavailability,
   deleteHoliday,
+  deleteSchedule,
   deleteManagedLocalUser,
   deleteWeekendRule,
   deleteWeeklyRule,
@@ -66,6 +67,7 @@ import {
   listScheduleProfiles,
   listSwapRequestsForSchedule,
   listUsersByProfile,
+  repairDatabaseSchema,
   setManagedLocalUserActive,
   createAuthToken,
   verifyAuthToken,
@@ -1755,6 +1757,28 @@ export const appRouter = router({
           action: "update_status",
           description: `Status da escala alterado para: ${input.status}`,
         });
+        return { success: true };
+      }),
+
+    deleteMonth: managerProfileProcedure
+      .input(z.object({ scheduleId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const schedule = await requireScheduleInProfile(
+          ctx.scheduleProfileId,
+          input.scheduleId
+        );
+
+        await deleteEntriesForSchedule(schedule.id);
+        await deleteSchedule(schedule.id);
+
+        await createAuditLog({
+          profileId: ctx.scheduleProfileId,
+          scheduleId: input.scheduleId,
+          userId: ctx.user?.id,
+          action: "delete_schedule",
+          description: `Escala removida para ${schedule.month}/${schedule.year}`,
+        });
+
         return { success: true };
       }),
 

@@ -23,7 +23,11 @@ import { getLoginUrl, getSalesContactUrl } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
 import { appPath, STAFF_HOME_PATH, isStaffRoute } from "@/lib/appRoutes";
-import { disableSupportMode, isSupportModeEnabled } from "@/lib/supportAccess";
+import {
+  disableSupportMode,
+  enableSupportMode,
+  isSupportModeEnabled,
+} from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -548,11 +552,36 @@ function DashboardLayoutContent({
                                 Modo suporte ativo
                               </p>
                               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                O acesso operacional do perfil master fica isolado
-                                nesta unidade. Para trocar de cliente, volte ao
-                                painel master.
+                                Escolha a unidade para intervençao pontual ou
+                                volte ao painel administrativo.
                               </p>
                             </div>
+                            {profiles.map((profile) => (
+                              <DropdownMenuItem
+                                key={profile.id}
+                                onClick={() => {
+                                  onSelectProfile(profile.id);
+                                  enableSupportMode(profile.id);
+                                  setLocation(appPath());
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                      {profile.name}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {profile.description?.trim() ||
+                                        "Equipe/setor independente"}
+                                    </p>
+                                  </div>
+                                  {profile.id === activeProfileId ? (
+                                    <span className="text-xs text-primary">Ativa</span>
+                                  ) : null}
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
                             <DropdownMenuItem
                               onClick={() => {
                                 disableSupportMode();

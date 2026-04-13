@@ -127,6 +127,14 @@ export default function Settings() {
     onError: (error) => toast.error(`Erro: ${error.message}`),
   });
 
+  const deleteScheduleMutation = trpc.schedules.deleteMonth.useMutation({
+    onSuccess: () => {
+      toast.success("Escala do mês apagada.");
+      refetchSchedule();
+    },
+    onError: (error) => toast.error(`Erro: ${error.message}`),
+  });
+
   const inviteUserMutation = trpc.adminUsers.invite.useMutation({
     onSuccess: async (data) => {
       toast.success("Convite gerado com sucesso!");
@@ -638,6 +646,37 @@ export default function Settings() {
                   ?.label ?? schedule.status}
               </Badge>
             </p>
+            <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+              <p className="text-sm font-medium text-foreground">
+                Apagar escala mensal
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Remove a escala de {MONTH_NAMES[month - 1]} {year} e todos os
+                plantões desse mês. Esta ação não desfaz sozinha.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="mt-3"
+                disabled={deleteScheduleMutation.isPending}
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    `Apagar a escala de ${MONTH_NAMES[month - 1]} ${year}? Todos os plantões desse mês serão removidos.`
+                  );
+
+                  if (!confirmed) return;
+
+                  deleteScheduleMutation.mutate({
+                    scheduleId: schedule.id,
+                  });
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleteScheduleMutation.isPending
+                  ? "Apagando..."
+                  : "Apagar escala do mês"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : null}

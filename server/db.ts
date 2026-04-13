@@ -2050,6 +2050,25 @@ export async function deleteEntriesForSchedule(scheduleId: number) {
     .where(eq(scheduleEntries.scheduleId, scheduleId));
 }
 
+export async function deleteSchedule(id: number) {
+  const db = await getDb();
+  if (!db) {
+    const schedule = offlineRuntimeSchedulesById.get(id);
+    if (!schedule) {
+      throw new Error("Schedule not found");
+    }
+
+    offlineRuntimeEntriesByScheduleId.delete(id);
+    offlineRuntimeSchedulesById.delete(id);
+    offlineRuntimeSchedulesByMonth.delete(
+      `${schedule.profileId}:${schedule.year}:${schedule.month}`
+    );
+    return;
+  }
+
+  await db.delete(schedules).where(eq(schedules.id, id));
+}
+
 // Night rotation state
 export async function getNightRotationState() {
   const db = await getDb();
@@ -2336,18 +2355,6 @@ export async function getNotificationHealth() {
   }));
 }
 
-export async function getUserById(id: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result[0];
-}
-
-export async function updateUserSubscription(userId: number, data: Partial<{
-  isPaid: boolean;
-  maxProfiles: number;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
