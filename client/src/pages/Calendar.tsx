@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { appPath } from "@/lib/appRoutes";
@@ -144,6 +144,7 @@ export default function Calendar() {
   const [importPreview, setImportPreview] =
     useState<ScheduleWorkbookPreview | null>(null);
   const [isReadingImportFile, setIsReadingImportFile] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const [swapModal, setSwapModal] = useState<{
     entryId: number;
     scheduleId: number;
@@ -466,6 +467,10 @@ export default function Calendar() {
     setImportModalOpen(true);
     setImportFileName("");
     setImportPreview(null);
+  }
+
+  function handleChooseImportFile() {
+    importFileInputRef.current?.click();
   }
 
   async function handleImportFileChange(
@@ -1268,15 +1273,17 @@ export default function Calendar() {
             <div className="rounded-2xl border-2 border-dashed border-border/60 bg-slate-50/50 p-8 text-center transition-all hover:bg-slate-50 dark:bg-slate-900/20">
               <input
                 type="file"
-                id="import-file"
+                ref={importFileInputRef}
                 className="hidden"
                 accept=".xlsx,.xls"
                 onChange={handleImportFileChange}
                 disabled={isReadingImportFile}
               />
-              <label
-                htmlFor="import-file"
-                className="flex cursor-pointer flex-col items-center gap-3"
+              <button
+                type="button"
+                onClick={handleChooseImportFile}
+                disabled={isReadingImportFile}
+                className="flex w-full flex-col items-center gap-3 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <div className="rounded-full bg-teal-100 p-3 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
                   <Upload className="h-6 w-6" />
@@ -1289,7 +1296,7 @@ export default function Calendar() {
                     Suporta arquivos Excel (.xlsx, .xls)
                   </p>
                 </div>
-              </label>
+              </button>
             </div>
 
             {importPreview && (
