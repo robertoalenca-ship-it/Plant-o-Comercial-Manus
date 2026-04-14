@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import InviteAccept from "./pages/InviteAccept";
 import Home from "./pages/Home";
+import LoginPage from "./pages/Login";
 import UpgradePlan from "./pages/UpgradePlan";
 import AdminPanel from "./pages/AdminPanel";
 import {
@@ -195,6 +196,10 @@ function Router() {
 
   if (location === "/invite-accept") {
     return <InviteAccept />;
+  }
+
+  if (isAppRoute(location) && !loading && !isAuthenticated) {
+    return <LoginPage />;
   }
 
   if (isAppRoute(location)) {

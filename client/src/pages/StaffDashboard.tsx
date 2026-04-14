@@ -122,8 +122,8 @@ export default function StaffDashboard() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">SaaS Master Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão global da plataforma e saúde do negócio.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Painel de Gerencia SaaS</h1>
+          <p className="text-muted-foreground mt-1">Gerencie clinicas, usuarios e a operacao administrativa da plataforma.</p>
         </div>
         <div className="flex gap-2">
             <Badge variant="outline" className="px-3 py-1 bg-primary/5 border-primary/20 text-primary font-medium">
@@ -183,13 +183,13 @@ export default function StaffDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="users" className="w-full">
+      <Tabs defaultValue="profiles" className="w-full">
         <TabsList className="bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="users" className="rounded-lg gap-2">
             <Users className="h-4 w-4" /> Usuários
           </TabsTrigger>
           <TabsTrigger value="profiles" className="rounded-lg gap-2">
-            <Hospital className="h-4 w-4" /> Unidades (Tenants)
+            <Hospital className="h-4 w-4" /> Clinicas e Unidades
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-lg gap-2">
             <Activity className="h-4 w-4" /> Saúde do Sistema
