@@ -274,12 +274,12 @@ function Router() {
     return <AppShell key="app-shell" />;
   }
 
-  if (isStaffRoute(location)) {
-    return <StaffShell key="staff-shell" />;
-  }
-
   if (isSupportRoute(location)) {
     return <SupportShell key="support-shell" />;
+  }
+
+  if (isStaffRoute(location)) {
+    return <StaffShell key="staff-shell" />;
   }
 
   return <NotFound />;
