@@ -39,6 +39,7 @@ import { useAuth } from "./_core/hooks/useAuth";
 import {
   disableSupportMode,
   enableSupportMode,
+  getSupportModeProfileId,
   isSupportModeEnabled,
 } from "./lib/supportAccess";
 
@@ -179,6 +180,7 @@ function Router() {
   const { user, isAuthenticated, loading } = useAuth();
   const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const supportModeActive = isSupportModeEnabled();
+  const supportModeProfileId = getSupportModeProfileId();
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
@@ -197,10 +199,22 @@ function Router() {
 
   // REDIRECT GUARDS FOR MASTER (STAFF)
   if (user?.role === "staff") {
-    const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
+    const effectiveSupportProfileId = activeProfileId ?? supportModeProfileId;
+    const canAccessClientContext =
+      supportModeActive && Boolean(effectiveSupportProfileId);
     const legacySupportMatch = location.match(
       /^\/staff\/support\/(\d+)(?:\/([^/]+))?(?:\/.*)?$/
     );
+
+    if (
+      supportModeActive &&
+      !activeProfileId &&
+      supportModeProfileId &&
+      isSupportRoute(location)
+    ) {
+      setActiveProfileId(supportModeProfileId);
+      return null;
+    }
 
     if (legacySupportMatch) {
       const profileId = Number.parseInt(legacySupportMatch[1] ?? "", 10);
@@ -218,7 +232,11 @@ function Router() {
       if (Number.isFinite(profileId) && profileId > 0) {
         const target = supportPath(sectionMap[rawSection] ?? "");
 
-        if (activeProfileId !== profileId || location !== target || !supportModeActive) {
+        if (
+          effectiveSupportProfileId !== profileId ||
+          location !== target ||
+          !supportModeActive
+        ) {
           setActiveProfileId(profileId);
           enableSupportMode(profileId);
           setLocation(target);
@@ -237,7 +255,7 @@ function Router() {
     }
 
     if (isSupportRoute(location) && !canAccessClientContext) {
-      if (supportModeActive && !activeProfileId) {
+      if (supportModeActive && !effectiveSupportProfileId) {
         disableSupportMode();
       }
       setLocation(STAFF_HOME_PATH);
@@ -245,7 +263,7 @@ function Router() {
     }
 
     if (!isStaffRoute(location) && !isSupportRoute(location)) {
-      if (supportModeActive && !activeProfileId) {
+      if (supportModeActive && !effectiveSupportProfileId) {
         disableSupportMode();
       }
       setLocation(STAFF_HOME_PATH);
