@@ -113,24 +113,22 @@ function StaffShell() {
 }
 
 function SupportShell() {
+  const [location] = useLocation();
+
+  let content = <Dashboard />;
+
+  if (location === supportPath("/calendar")) {
+    content = <Calendar />;
+  } else if (location === supportPath("/admin")) {
+    content = <AdminPanel />;
+  } else if (location === supportPath("/settings")) {
+    content = <Settings />;
+  } else if (location === supportPath() || location.startsWith(`${supportPath()}/`)) {
+    content = <Dashboard />;
+  }
+
   return (
-    <StaffSupportLayout>
-      <Switch>
-        <Route
-          path={supportPath("/:profileId")}
-          component={LegacySupportProfileRedirect}
-        />
-        <Route
-          path={supportPath("/:profileId/:section")}
-          component={LegacySupportProfileRedirect}
-        />
-        <Route path={supportPath()} component={Dashboard} />
-        <Route path={supportPath("/calendar")} component={Calendar} />
-        <Route path={supportPath("/admin")} component={AdminPanel} />
-        <Route path={supportPath("/settings")} component={Settings} />
-        <Route component={NotFound} />
-      </Switch>
-    </StaffSupportLayout>
+    <StaffSupportLayout>{content}</StaffSupportLayout>
   );
 }
 
