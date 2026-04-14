@@ -115,13 +115,14 @@ export default function StaffDashboard() {
     setStoredScheduleProfileId(profileId);
     setActiveProfileId(profileId);
     enableSupportMode(profileId);
+    const supportEntryPath = supportPath(`/${profileId}`);
 
     if (typeof window !== "undefined") {
-      window.location.assign(supportPath());
+      window.location.assign(supportEntryPath);
       return;
     }
 
-    setLocation(supportPath());
+    setLocation(supportEntryPath);
   };
 
   const stats = statsQuery.data || { totalUsers: 0, totalProfiles: 0, totalEntries: 0, premiumUsers: 0 };
