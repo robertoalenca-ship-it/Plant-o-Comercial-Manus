@@ -254,12 +254,8 @@ function Router() {
       return null;
     }
 
-    if (isSupportRoute(location) && !canAccessClientContext) {
-      if (supportModeActive && !effectiveSupportProfileId) {
-        disableSupportMode();
-      }
-      setLocation(STAFF_HOME_PATH);
-      return null;
+    if (isSupportRoute(location)) {
+      return <SupportShell key="support-shell" />;
     }
 
     if (!isStaffRoute(location) && !isSupportRoute(location)) {
@@ -292,12 +288,12 @@ function Router() {
     return <AppShell key="app-shell" />;
   }
 
-  if (isSupportRoute(location)) {
-    return <SupportShell key="support-shell" />;
-  }
-
   if (isStaffRoute(location)) {
     return <StaffShell key="staff-shell" />;
+  }
+
+  if (isSupportRoute(location)) {
+    return <SupportShell key="support-shell" />;
   }
 
   return <NotFound />;
