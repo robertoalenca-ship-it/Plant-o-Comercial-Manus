@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { STAFF_HOME_PATH, staffPath, supportPath } from "@/lib/appRoutes";
 import { enableSupportMode } from "@/lib/supportAccess";
+import { setStoredScheduleProfileId } from "@/lib/scheduleProfile";
 import { trpc } from "@/lib/trpc";
 import {
   Table,
@@ -111,8 +112,15 @@ export default function StaffDashboard() {
   };
 
   const handleAccessProfile = (profileId: number) => {
+    setStoredScheduleProfileId(profileId);
     setActiveProfileId(profileId);
     enableSupportMode(profileId);
+
+    if (typeof window !== "undefined") {
+      window.location.assign(supportPath());
+      return;
+    }
+
     setLocation(supportPath());
   };
 
