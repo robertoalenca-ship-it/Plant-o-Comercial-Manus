@@ -36,7 +36,11 @@ import StaffDashboard from "./pages/StaffDashboard";
 import StaffLayout from "./components/StaffLayout";
 import StaffSupportLayout from "./components/StaffSupportLayout";
 import { useAuth } from "./_core/hooks/useAuth";
-import { disableSupportMode, isSupportModeEnabled } from "./lib/supportAccess";
+import {
+  disableSupportMode,
+  enableSupportMode,
+  isSupportModeEnabled,
+} from "./lib/supportAccess";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -112,6 +116,14 @@ function SupportShell() {
   return (
     <StaffSupportLayout>
       <Switch>
+        <Route
+          path={supportPath("/:profileId")}
+          component={LegacySupportProfileRedirect}
+        />
+        <Route
+          path={supportPath("/:profileId/:section")}
+          component={LegacySupportProfileRedirect}
+        />
         <Route path={supportPath()} component={Dashboard} />
         <Route path={supportPath("/calendar")} component={Calendar} />
         <Route path={supportPath("/admin")} component={AdminPanel} />
@@ -130,6 +142,36 @@ function LegacyRouteRedirect({ to }: { to: string }) {
       setLocation(to);
     }
   }, [location, setLocation, to]);
+
+  return null;
+}
+
+function LegacySupportProfileRedirect({
+  params,
+}: {
+  params?: { profileId?: string; section?: string };
+}) {
+  const [, setLocation] = useLocation();
+  const { setActiveProfileId } = useScheduleProfile();
+
+  useEffect(() => {
+    const profileId = Number.parseInt(params?.profileId ?? "", 10);
+
+    if (!Number.isFinite(profileId) || profileId <= 0) {
+      setLocation(STAFF_HOME_PATH);
+      return;
+    }
+
+    const sectionMap: Record<string, string> = {
+      calendar: "/calendar",
+      admin: "/admin",
+      settings: "/settings",
+    };
+
+    setActiveProfileId(profileId);
+    enableSupportMode(profileId);
+    setLocation(supportPath(sectionMap[params?.section ?? ""] ?? ""));
+  }, [params?.profileId, params?.section, setActiveProfileId, setLocation]);
 
   return null;
 }
