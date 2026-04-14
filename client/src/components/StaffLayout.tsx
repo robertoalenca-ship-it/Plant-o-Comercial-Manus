@@ -19,44 +19,28 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { STAFF_HOME_PATH } from "@/lib/appRoutes";
-import {
-  Database,
-  LayoutDashboard,
-  LogOut,
-  PanelLeft,
-  RefreshCw,
-  Shield,
-  Users,
-} from "lucide-react";
-import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
-import {
-  CSSProperties,
-  ReactNode,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Activity, Hospital, LogOut, PanelLeft, Shield } from "lucide-react";
+import { CSSProperties, ReactNode, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import AppBrand from "./AppBrand";
-import { ThemeToggle } from "./ThemeToggle";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
+import { ThemeToggle } from "./ThemeToggle";
 
 const staffMenuItems = [
-  { 
-    icon: Shield, 
-    label: "Geral", 
-    path: STAFF_HOME_PATH 
+  {
+    icon: Shield,
+    label: "Geral",
+    path: STAFF_HOME_PATH,
   },
-  { 
-    icon: Users, 
-    label: "Usuários & Admin", 
-    path: "/staff/users" 
+  {
+    icon: Hospital,
+    label: "Clinicas e Unidades",
+    path: "/staff/users",
   },
-  { 
-    icon: LayoutDashboard, 
-    label: "SaaS Analytics", 
-    path: "/staff/analytics" 
+  {
+    icon: Activity,
+    label: "Saude do Sistema",
+    path: "/staff/analytics",
   },
 ];
 
@@ -65,9 +49,8 @@ export default function StaffLayout({
 }: {
   children: ReactNode;
 }) {
-  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [sidebarWidth] = useState(280);
   const { loading, user } = useAuth();
-  const [location] = useLocation();
 
   if (loading) {
     return <DashboardLayoutSkeleton />;
@@ -86,57 +69,26 @@ export default function StaffLayout({
         } as CSSProperties
       }
     >
-      <StaffLayoutContent setSidebarWidth={setSidebarWidth}>
-        {children}
-      </StaffLayoutContent>
+      <StaffLayoutContent>{children}</StaffLayoutContent>
     </SidebarProvider>
   );
 }
 
 function StaffLayoutContent({
   children,
-  setSidebarWidth,
 }: {
   children: ReactNode;
-  setSidebarWidth: (width: number) => void;
 }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { toggleSidebar, state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const sidebarRef = useRef<HTMLDivElement>(null);
-  
-  const syncMutation = trpc.saasAdmin.syncDatabase.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message, {
-          duration: 5000,
-          description: data.results?.join("\n")
-        });
-      } else {
-        toast.error(data.message);
-      }
-    },
-    onError: (error) => {
-      toast.error("Erro ao sincronizar banco: " + error.message);
-    }
-  });
-
-  const handleSyncDatabase = () => {
-    if (confirm("Deseja sincronizar as colunas do banco de dados agora? Isso resolverá erros de 'Failed query' na VPS.")) {
-      syncMutation.mutate();
-    }
-  };
-
-  const activeMenuItem = staffMenuItems.find((item) => item.path === location);
 
   return (
     <>
       <div className="relative" ref={sidebarRef}>
-        <Sidebar
-          collapsible="icon"
-          className="app-sidebar border-r-0"
-        >
+        <Sidebar collapsible="icon" className="app-sidebar border-r-0">
           <SidebarHeader className="border-b border-white/8 px-2 py-3">
             <div className="flex w-full flex-col gap-3 transition-all">
               <div className="flex w-full items-start gap-3">
@@ -189,23 +141,6 @@ function StaffLayoutContent({
           <SidebarFooter className="p-3 space-y-2">
             <div className="flex flex-col gap-2 px-1 group-data-[collapsible=icon]:items-center">
               <ThemeToggle variant="ghost" size="icon" className="h-8 w-8" />
-              <button
-                onClick={handleSyncDatabase}
-                disabled={syncMutation.isPending}
-                className="flex items-center gap-2 rounded-md bg-orange-500/10 px-2 py-1.5 text-[11px] font-medium text-orange-600 transition-colors hover:bg-orange-500/20 disabled:opacity-50 dark:text-orange-400 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
-                title="Sincronizar Banco de Dados"
-              >
-                {syncMutation.isPending ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Database className="h-3.5 w-3.5" />
-                )}
-                {!isCollapsed && (
-                  <span>
-                    {syncMutation.isPending ? "Sincronizando..." : "Sincronizar Banco"}
-                  </span>
-                )}
-              </button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -241,9 +176,7 @@ function StaffLayoutContent({
 
       <SidebarInset className="app-main-shell overflow-hidden bg-background flex flex-col">
         <main className="app-main-content flex-1 overflow-auto p-4 md:p-6 lg:p-8 rounded-tl-3xl border-t border-l border-border bg-card shadow-sm m-1 mr-0 mb-0 md:m-2 md:mr-0 md:mb-0 transition-colors duration-200 dark:bg-card/50 dark:border-border/50">
-          <div className="mx-auto max-w-6xl">
-            {children}
-          </div>
+          <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </SidebarInset>
     </>

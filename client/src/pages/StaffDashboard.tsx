@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
-import { supportPath } from "@/lib/appRoutes";
+import { STAFF_HOME_PATH, staffPath, supportPath } from "@/lib/appRoutes";
 import { enableSupportMode } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
@@ -52,7 +52,7 @@ import {
 export default function StaffDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [profileSearch, setProfileSearch] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { setActiveProfileId } = useScheduleProfile();
   
   // Queries
@@ -117,6 +117,17 @@ export default function StaffDashboard() {
   };
 
   const stats = statsQuery.data || { totalUsers: 0, totalProfiles: 0, totalEntries: 0, premiumUsers: 0 };
+  const activeTab = useMemo(() => {
+    if (location === staffPath("/users")) {
+      return "profiles";
+    }
+
+    if (location === staffPath("/analytics")) {
+      return "system";
+    }
+
+    return "users";
+  }, [location]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -183,7 +194,23 @@ export default function StaffDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="profiles" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if (value === "profiles") {
+            setLocation(staffPath("/users"));
+            return;
+          }
+
+          if (value === "system") {
+            setLocation(staffPath("/analytics"));
+            return;
+          }
+
+          setLocation(STAFF_HOME_PATH);
+        }}
+        className="w-full"
+      >
         <TabsList className="bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="users" className="rounded-lg gap-2">
             <Users className="h-4 w-4" /> Usuários
