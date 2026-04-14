@@ -179,7 +179,7 @@ function LegacySupportProfileRedirect({
 function Router() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, loading } = useAuth();
-  const { activeProfileId } = useScheduleProfile();
+  const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const supportModeActive = isSupportModeEnabled();
 
   useEffect(() => {
@@ -200,6 +200,34 @@ function Router() {
   // REDIRECT GUARDS FOR MASTER (STAFF)
   if (user?.role === "staff") {
     const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
+    const legacySupportMatch = location.match(
+      /^\/staff\/support\/(\d+)(?:\/([^/]+))?(?:\/.*)?$/
+    );
+
+    if (legacySupportMatch) {
+      const profileId = Number.parseInt(legacySupportMatch[1] ?? "", 10);
+      const rawSection = legacySupportMatch[2] ?? "";
+      const sectionMap: Record<string, string> = {
+        dashboard: "",
+        home: "",
+        calendar: "/calendar",
+        admin: "/admin",
+        doctors: "/admin",
+        users: "/admin",
+        settings: "/settings",
+      };
+
+      if (Number.isFinite(profileId) && profileId > 0) {
+        const target = supportPath(sectionMap[rawSection] ?? "");
+
+        if (activeProfileId !== profileId || location !== target || !supportModeActive) {
+          setActiveProfileId(profileId);
+          enableSupportMode(profileId);
+          setLocation(target);
+          return null;
+        }
+      }
+    }
 
     if (isAppRoute(location)) {
       setLocation(
