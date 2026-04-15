@@ -20,6 +20,9 @@ import InviteAccept from "./pages/InviteAccept";
 import Home from "./pages/Home";
 import UpgradePlan from "./pages/UpgradePlan";
 import AdminPanel from "./pages/AdminPanel";
+import Swaps from "./pages/Swaps";
+import Attendance from "./pages/Attendance";
+import Finance from "./pages/Finance";
 import {
   APP_HOME_PATH,
   LEGACY_APP_ROUTE_REDIRECTS,
@@ -88,6 +91,9 @@ function AppShell() {
         <Route path={appPath("/settings")} component={Settings} />
         <Route path={appPath("/upgrade")} component={UpgradePlan} />
         <Route path={appPath("/admin")} component={AdminPanel} />
+        <Route path={appPath("/swaps")} component={Swaps} />
+        <Route path={appPath("/attendance")} component={Attendance} />
+        <Route path={appPath("/finance")} component={Finance} />
         <Route path={appPath("/404")} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

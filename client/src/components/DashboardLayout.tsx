@@ -37,14 +37,17 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  MapPin,
   PanelLeft,
   Plus,
+  Repeat,
   Settings,
   Shield,
   Stethoscope,
   Sun,
   Undo2,
   Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 import {
@@ -74,6 +77,9 @@ const menuItems = [
   },
   { icon: Sun, label: "Finais de Semana", path: appPath("/weekend-rules") },
   { icon: AlertTriangle, label: "Excecoes", path: appPath("/exceptions") },
+  { icon: Repeat, label: "Mural de Trocas", path: appPath("/swaps") },
+  { icon: MapPin, label: "Ponto Eletrônico", path: appPath("/attendance") },
+  { icon: Wallet, label: "Financeiro", path: appPath("/finance") },
   { icon: BarChart3, label: "Relatorios", path: appPath("/reports") },
   { icon: Settings, label: "Configuracoes", path: appPath("/settings") },
   { 
@@ -251,7 +257,7 @@ export default function DashboardLayout({
           await loginMutation.mutateAsync({
             email,
             password,
-          });
+            });
         }
       } catch {
         // Error state handled by mutation
@@ -815,9 +821,9 @@ function DashboardLayoutContent({
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <span>
-                VocÃª estÃ¡ em <strong>modo suporte</strong> na unidade{" "}
+                Você está em <strong>modo suporte</strong> na unidade{" "}
                 <strong>{activeProfileName}</strong>. O painel operacional foi
-                aberto apenas para intervenÃ§Ã£o pontual.
+                aberto apenas para intervenção pontual.
               </span>
             </div>
             <Button
