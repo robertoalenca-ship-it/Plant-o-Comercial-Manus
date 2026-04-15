@@ -48,10 +48,18 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "../..", "dist", "public");
+  // Robust path resolution:
+  // In production (bundled), import.meta.dirname is <project>/dist/
+  // In development, import.meta.dirname is <project>/server/_core/
+  const distPath = fs.existsSync(path.resolve(import.meta.dirname, "public"))
+    ? path.resolve(import.meta.dirname, "public") // Bundled mode (dist/public)
+    : path.resolve(import.meta.dirname, "../..", "dist", "public"); // Dev mode target
+
+  console.log(`[server] Serving static assets from: ${distPath}`);
+
   if (!fs.existsSync(distPath)) {
     console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `[server] ERROR: Could not find the build directory: ${distPath}. Build failed or paths are mismatched.`
     );
   }
 
@@ -59,6 +67,11 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (!fs.existsSync(indexPath)) {
+      res.status(404).send("Front-end not found. Please run build first.");
+      return;
+    }
+    res.sendFile(indexPath);
   });
 }
