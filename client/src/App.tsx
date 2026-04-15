@@ -37,6 +37,9 @@ import StaffSupportLayout from "./components/StaffSupportLayout";
 import { useAuth } from "./_core/hooks/useAuth";
 import { disableSupportMode, isSupportModeEnabled } from "./lib/supportAccess";
 
+const isMasterRole = (role: string | undefined) =>
+  role === "staff" || role === "admin";
+
 function OptionalAnalytics() {
   useEffect(() => {
     // @ts-ignore
@@ -141,7 +144,7 @@ function Router() {
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
-      if (user?.role === "staff") {
+      if (isMasterRole(user?.role)) {
         setLocation(STAFF_HOME_PATH);
       } else {
         setLocation(appPath());
@@ -155,7 +158,7 @@ function Router() {
   }
 
   // REDIRECT GUARDS FOR MASTER (STAFF)
-  if (user?.role === "staff") {
+  if (isMasterRole(user?.role)) {
     const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
 
     if (isAppRoute(location)) {

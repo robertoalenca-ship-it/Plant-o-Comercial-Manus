@@ -91,7 +91,9 @@ export default function UpgradePlan() {
   const salesContactUrl = getSalesContactUrl() || "#";
   const { user } = useAuth();
   const { activeProfileId } = useScheduleProfile();
-  const supportModeActive = user?.role === "staff" && isSupportModeEnabled();
+  const supportModeActive =
+    (user?.role === "staff" || user?.role === "admin") &&
+    isSupportModeEnabled();
 
   const profilesQuery = trpc.saasAdmin.listProfiles.useQuery(undefined, {
     enabled: supportModeActive,

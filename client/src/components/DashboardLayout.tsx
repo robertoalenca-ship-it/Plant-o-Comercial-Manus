@@ -87,6 +87,8 @@ const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
+const isMasterRole = (role: string | undefined) =>
+  role === "staff" || role === "admin";
 
 function normalizeAuthErrorMessage(rawMessage: string) {
   if (!rawMessage) {
@@ -137,7 +139,7 @@ export default function DashboardLayout({
   const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const { loading, user } = useAuth();
   const [location, setLocation] = useLocation();
-  const supportModeActive = user?.role === "staff" && isSupportModeEnabled();
+  const supportModeActive = isMasterRole(user?.role) && isSupportModeEnabled();
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -205,7 +207,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (profilesQuery.isLoading) return;
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
-      if (user.role === "staff") {
+      if (isMasterRole(user.role)) {
         if (location.startsWith(appPath())) setLocation(STAFF_HOME_PATH);
         return;
       }
@@ -215,7 +217,7 @@ export default function DashboardLayout({
       }
       return;
     }
-    if (activeProfileId || user?.role === "staff") return;
+    if (activeProfileId || isMasterRole(user?.role)) return;
     const defaultProfile =
       profiles.find((profile) =>
         [
@@ -461,7 +463,7 @@ function DashboardLayoutContent({
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
-  const supportModeActive = user?.role === "staff" && isSupportModeEnabled();
+  const supportModeActive = isMasterRole(user?.role) && isSupportModeEnabled();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -587,7 +589,7 @@ function DashboardLayoutContent({
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-64">
-                        {user?.role === "staff" ? (
+            {isMasterRole(user?.role) ? (
                           <>
                             <div className="px-3 py-2">
                               <p className="text-sm font-medium text-foreground">

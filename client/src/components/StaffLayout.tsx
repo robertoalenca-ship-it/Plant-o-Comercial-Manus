@@ -60,6 +60,9 @@ const staffMenuItems = [
   },
 ];
 
+const isMasterRole = (role: string | undefined) =>
+  role === "staff" || role === "admin";
+
 export default function StaffLayout({
   children,
 }: {
@@ -73,7 +76,7 @@ export default function StaffLayout({
     return <DashboardLayoutSkeleton />;
   }
 
-  if (!user || user.role !== "staff") {
+  if (!user || !isMasterRole(user.role)) {
     return <div className="flex h-screen items-center justify-center">Acesso negado.</div>;
   }
 
