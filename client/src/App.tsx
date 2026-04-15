@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import InviteAccept from "./pages/InviteAccept";
 import Home from "./pages/Home";
+import LoginPage from "./pages/Login";
 import UpgradePlan from "./pages/UpgradePlan";
 import AdminPanel from "./pages/AdminPanel";
 import Swaps from "./pages/Swaps";
@@ -196,6 +197,10 @@ function Router() {
   // REGULAR ROUTES
   if (location === "/") {
     return <Home />;
+  }
+
+  if (location === "/login") {
+    return <LoginPage />;
   }
 
   if (location === appPath("/onboarding")) {

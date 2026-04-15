@@ -7,11 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Clock, CheckCircle2, AlertCircle, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export default function Attendance() {
   const { activeProfileId } = useScheduleProfile();
-  const { toast } = useToast();
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -97,7 +96,7 @@ export default function Attendance() {
                   <code className="block bg-muted p-2 rounded text-xs">
                     Lat: {coords.lat.toFixed(6)} | Lng: {coords.lng.toFixed(6)}
                   </code>
-                  <Badge variant="success" className="bg-green-500/10 text-green-600 border-green-200">
+                  <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-200">
                     Dentro do perímetro autorizado
                   </Badge>
                 </div>
