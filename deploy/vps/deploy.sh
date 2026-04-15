@@ -55,8 +55,9 @@ if [[ -n "${APP_DOMAIN}" ]]; then
   echo "[deploy] Dominio esperado: ${APP_DOMAIN}"
 fi
 
-echo "[deploy] Buildando e subindo containers..."
-"${DOCKER_COMPOSE[@]}" --env-file "${ENV_FILE}" up -d --build --remove-orphans
+echo "[deploy] Buildando e subindo containers (sem cache)..."
+"${DOCKER_COMPOSE[@]}" --env-file "${ENV_FILE}" build --no-cache
+"${DOCKER_COMPOSE[@]}" --env-file "${ENV_FILE}" up -d --remove-orphans
 
 echo "[deploy] Aguardando healthcheck em ${HEALTHCHECK_URL}..."
 for attempt in {1..20}; do
