@@ -7,11 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Repeat, Calendar, User, Clock, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export default function Swaps() {
   const { activeProfileId } = useScheduleProfile();
-  const { toast } = useToast();
   const utils = trpc.useUtils();
 
   // No backend, o getScheduleByMonth retorna a escala com entries.

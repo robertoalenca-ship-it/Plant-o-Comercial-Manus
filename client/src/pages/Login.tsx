@@ -23,7 +23,7 @@ export default function LoginPage() {
       await utils.auth.me.invalidate();
     },
     onError: (mutationError) => {
-      setError(mutationError.message || "Nao foi possivel entrar.");
+      setError(mutationError.message || "Não foi possível entrar.");
     },
   });
 
@@ -58,7 +58,7 @@ export default function LoginPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Entrar no sistema</h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Escolha como deseja entrar. O Google so abre quando voce clicar nele.
+              Escolha como deseja entrar. O Google só abre quando você clicar nele.
             </p>
           </div>
         </div>
