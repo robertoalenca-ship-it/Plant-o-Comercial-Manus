@@ -65,6 +65,8 @@ services:
       MYSQL_USER: ${MYSQL_USER:-escala_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-escala_password}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-escala_root_password}
+    ports:
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:

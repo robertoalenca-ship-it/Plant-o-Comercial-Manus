@@ -792,10 +792,32 @@ export const appRouter = router({
             },
           };
         } catch (error) {
+          const rawMessage =
+            error instanceof Error ? error.message : "Erro ao criar conta";
+
+          // Detect duplicate email (MySQL error 1062)
+          if (
+            rawMessage.includes("Duplicate entry") ||
+            rawMessage.includes("ER_DUP_ENTRY")
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Já existe uma conta com este e-mail. Tente fazer login.",
+            });
+          }
+
+          // Never expose raw SQL to the client
+          const isSqlLeak =
+            rawMessage.includes("insert into") ||
+            rawMessage.includes("Failed query") ||
+            rawMessage.includes("SQLSTATE");
+
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message:
-              error instanceof Error ? error.message : "Erro ao criar conta",
+            message: isSqlLeak
+              ? "Erro interno ao criar conta. Tente novamente mais tarde."
+              : rawMessage,
           });
         }
       }),
