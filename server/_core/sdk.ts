@@ -14,6 +14,7 @@ import type {
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
 } from "./types/manusTypes";
+
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -27,6 +28,15 @@ export type SessionPayload = {
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
+const DIRECT_SESSION_LOGIN_METHOD_PREFIXES: ReadonlyArray<
+  readonly [prefix: string, loginMethod: string]
+> = [
+  ["google:", "google"],
+  ["apple:", "apple"],
+  ["github:", "github"],
+  ["microsoft:", "microsoft"],
+  ["local:", "password"],
+];
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
@@ -83,7 +93,7 @@ const createOAuthHttpClient = (): AxiosInstance =>
     timeout: AXIOS_TIMEOUT_MS,
   });
 
-class SDKServer {
+export class SDKServer {
   private readonly client: AxiosInstance;
   private readonly oauthService: OAuthService;
 
@@ -257,6 +267,43 @@ class SDKServer {
     } as GetUserInfoWithJwtResponse;
   }
 
+  private inferDirectSessionLoginMethod(session: SessionPayload): string | null {
+    for (const [prefix, loginMethod] of DIRECT_SESSION_LOGIN_METHOD_PREFIXES) {
+      if (session.openId.startsWith(prefix)) {
+        return loginMethod;
+      }
+    }
+
+    if (session.openId === "__local_dev_admin__") {
+      return "password";
+    }
+
+    if (session.appId === ENV.localSessionAppId) {
+      return "password";
+    }
+
+    return null;
+  }
+
+  private async restoreUserFromTrustedSession(
+    session: SessionPayload,
+    signedInAt: Date
+  ): Promise<User | undefined> {
+    const loginMethod = this.inferDirectSessionLoginMethod(session);
+    if (!loginMethod) {
+      return undefined;
+    }
+
+    await db.upsertUser({
+      openId: session.openId,
+      name: session.name || null,
+      loginMethod,
+      lastSignedIn: signedInAt,
+    });
+
+    return db.getUserByOpenId(session.openId);
+  }
+
   async authenticateRequest(req: Request): Promise<User> {
     // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
@@ -271,8 +318,14 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
+    // Sessions signed by this app can safely restore direct-provider users
+    // without depending on the legacy OAuth bridge.
     if (!user) {
+      user = await this.restoreUserFromTrustedSession(session, signedInAt);
+    }
+
+    // If user still not in DB, sync from legacy OAuth server automatically.
+    if (!user && ENV.oAuthServerUrl) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
         await db.upsertUser({
