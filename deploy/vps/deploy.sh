@@ -28,10 +28,25 @@ source "${ENV_FILE}"
 set +a
 
 # Tenta liberar a porta antes de subir os containers
-if command -v fuser >/dev/null 2>&1; then
-  echo "[deploy] Verificando porta ${APP_PORT}..."
-  fuser -k "${APP_PORT}/tcp" || true
+echo "[deploy] Tentando liberar a porta ${APP_PORT}..."
+
+# 1. Tenta derrubar via Docker se houver container usando a porta
+if command -v docker >/dev/null 2>&1; then
+  docker ps -q --filter "publish=${APP_PORT}" | xargs -r docker stop >/dev/null 2>&1 || true
 fi
+
+# 2. Tenta via fuser (ferramenta padrao de portas)
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k "${APP_PORT}/tcp" >/dev/null 2>&1 || true
+fi
+
+# 3. Tenta via lsof (ferramenta diagnostica)
+if command -v lsof >/dev/null 2>&1; then
+  lsof -ti :"${APP_PORT}" | xargs -r kill -9 >/dev/null 2>&1 || true
+fi
+
+# 4. Forca o Docker Compose a limpar redes e containers orfaos
+"${DOCKER_COMPOSE[@]}" --env-file "${ENV_FILE}" down --remove-orphans >/dev/null 2>&1 || true
 
 cd "${APP_DIR}"
 
