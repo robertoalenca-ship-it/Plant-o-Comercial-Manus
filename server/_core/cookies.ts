@@ -11,14 +11,23 @@ function isIpAddress(host: string) {
 function isSecureRequest(req: Request) {
   if (req.protocol === "https") return true;
 
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  if (!forwardedProto) return false;
+  const headers = req.headers;
+  const forwardedProto = headers["x-forwarded-proto"];
+  const forwardedSsl = headers["x-forwarded-ssl"];
+  const frontEndHttps = headers["front-end-https"];
 
-  const protoList = Array.isArray(forwardedProto)
-    ? forwardedProto
-    : forwardedProto.split(",");
+  // Check X-Forwarded-Proto
+  if (forwardedProto) {
+    const protoList = Array.isArray(forwardedProto)
+      ? forwardedProto
+      : forwardedProto.split(",");
+    if (protoList.some(proto => proto.trim().toLowerCase() === "https")) return true;
+  }
 
-  return protoList.some(proto => proto.trim().toLowerCase() === "https");
+  // Check other common proxy headers
+  if (forwardedSsl === "on" || frontEndHttps === "on") return true;
+
+  return false;
 }
 
 export function getSessionCookieOptions(

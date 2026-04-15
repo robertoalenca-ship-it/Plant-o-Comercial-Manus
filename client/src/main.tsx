@@ -23,7 +23,10 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
 
   if (!isUnauthorized) return;
-  window.location.href = appPath();
+  
+  // NOTE: Automatic redirect to appPath() removed to prevent infinite reload loops.
+  // The DashboardLayout now handles unauthenticated state by rendering the login form.
+  console.log("[Auth] Unauthorized access detected. Handling via UI component state.");
 };
 
 queryClient.getQueryCache().subscribe(event => {
