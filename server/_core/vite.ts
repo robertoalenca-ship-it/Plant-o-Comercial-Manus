@@ -69,6 +69,11 @@ export function serveStatic(app: Express) {
       res.status(404).send("Front-end not found. Please run build first.");
       return;
     }
+    res.set({
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    });
     res.sendFile(indexPath);
   });
 }
