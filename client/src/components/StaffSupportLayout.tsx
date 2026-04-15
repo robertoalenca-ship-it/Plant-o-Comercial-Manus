@@ -81,6 +81,8 @@ const staffSupportMenuItems = [
 
 const SIDEBAR_WIDTH_KEY = "staff-support-sidebar-width";
 const DEFAULT_WIDTH = 280;
+const isMasterRole = (role: string | undefined) =>
+  role === "staff" || role === "admin";
 
 export default function StaffSupportLayout({
   children,
@@ -93,7 +95,7 @@ export default function StaffSupportLayout({
   });
   const { loading, user } = useAuth();
   const profilesQuery = trpc.scheduleProfiles.list.useQuery(undefined, {
-    enabled: user?.role === "staff",
+    enabled: isMasterRole(user?.role),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -106,7 +108,7 @@ export default function StaffSupportLayout({
     return <DashboardLayoutSkeleton />;
   }
 
-  if (!user || user.role !== "staff") {
+  if (!user || !isMasterRole(user.role)) {
     return <div className="flex h-screen items-center justify-center">Acesso negado.</div>;
   }
 

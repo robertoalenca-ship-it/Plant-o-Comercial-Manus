@@ -38,7 +38,7 @@ function getCookieValue(req: Request, key: string) {
 }
 
 function isGoogleAuthConfigured() {
-  return Boolean(ENV.googleClientId && ENV.googleClientSecret);
+  return false;
 }
 
 function buildGoogleOpenId(sub: string) {
@@ -61,6 +61,7 @@ async function exchangeGoogleCodeForTokens(req: Request, code: string) {
   const { data } = await axios.post<{
     access_token: string;
   }>(GOOGLE_TOKEN_URL, params.toString(), {
+    family: 4,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
 
@@ -69,6 +70,7 @@ async function exchangeGoogleCodeForTokens(req: Request, code: string) {
 
 async function getGoogleUserInfo(accessToken: string) {
   const { data } = await axios.get<GoogleUserInfo>(GOOGLE_USERINFO_URL, {
+    family: 4,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   return data;
@@ -85,7 +87,7 @@ function setGoogleSessionCookie(req: Request, res: Response, sessionToken: strin
 export function registerOAuthRoutes(app: Express) {
   app.get("/api/oauth/google/start", async (req: Request, res: Response) => {
     if (!isGoogleAuthConfigured()) {
-      res.status(503).json({ error: "Google OAuth is not configured" });
+      res.status(503).json({ error: "Google OAuth is temporarily disabled" });
       return;
     }
 
@@ -114,6 +116,11 @@ export function registerOAuthRoutes(app: Express) {
   });
 
   app.get("/api/oauth/google/callback", async (req: Request, res: Response) => {
+    if (!isGoogleAuthConfigured()) {
+      res.status(503).json({ error: "Google OAuth is temporarily disabled" });
+      return;
+    }
+
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
     const expectedState = getCookieValue(req, GOOGLE_STATE_COOKIE);

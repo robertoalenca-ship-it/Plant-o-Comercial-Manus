@@ -2279,8 +2279,11 @@ export async function listAllProfiles() {
 
   return rows.map(row => ({
     ...row.profile,
+    ownerUserId: row.owner?.id ?? null,
     ownerName: row.owner?.name ?? "Sem proprietario",
     ownerEmail: row.owner?.email ?? "N/A",
+    ownerIsPaid: row.owner?.isPaid ?? false,
+    ownerMaxProfiles: row.owner?.maxProfiles ?? 1,
   }));
 }
 

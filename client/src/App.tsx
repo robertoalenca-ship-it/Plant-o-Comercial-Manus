@@ -21,6 +21,9 @@ import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
 import UpgradePlan from "./pages/UpgradePlan";
 import AdminPanel from "./pages/AdminPanel";
+import Swaps from "./pages/Swaps";
+import Attendance from "./pages/Attendance";
+import Finance from "./pages/Finance";
 import {
   APP_HOME_PATH,
   LEGACY_APP_ROUTE_REDIRECTS,
@@ -42,6 +45,9 @@ import {
   getSupportModeProfileId,
   isSupportModeEnabled,
 } from "./lib/supportAccess";
+
+const isMasterRole = (role: string | undefined) =>
+  role === "staff" || role === "admin";
 
 function OptionalAnalytics() {
   useEffect(() => {
@@ -91,6 +97,9 @@ function AppShell() {
         <Route path={appPath("/settings")} component={Settings} />
         <Route path={appPath("/upgrade")} component={UpgradePlan} />
         <Route path={appPath("/admin")} component={AdminPanel} />
+        <Route path={appPath("/swaps")} component={Swaps} />
+        <Route path={appPath("/attendance")} component={Attendance} />
+        <Route path={appPath("/finance")} component={Finance} />
         <Route path={appPath("/404")} component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -114,22 +123,16 @@ function StaffShell() {
 }
 
 function SupportShell() {
-  const [location] = useLocation();
-
-  let content = <Dashboard />;
-
-  if (location === supportPath("/calendar")) {
-    content = <Calendar />;
-  } else if (location === supportPath("/admin")) {
-    content = <AdminPanel />;
-  } else if (location === supportPath("/settings")) {
-    content = <Settings />;
-  } else if (location === supportPath() || location.startsWith(`${supportPath()}/`)) {
-    content = <Dashboard />;
-  }
-
   return (
-    <StaffSupportLayout>{content}</StaffSupportLayout>
+    <StaffSupportLayout>
+      <Switch>
+        <Route path={supportPath()} component={Dashboard} />
+        <Route path={supportPath("/calendar")} component={Calendar} />
+        <Route path={supportPath("/admin")} component={AdminPanel} />
+        <Route path={supportPath("/settings")} component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    </StaffSupportLayout>
   );
 }
 
@@ -145,36 +148,6 @@ function LegacyRouteRedirect({ to }: { to: string }) {
   return null;
 }
 
-function LegacySupportProfileRedirect({
-  params,
-}: {
-  params?: { profileId?: string; section?: string };
-}) {
-  const [, setLocation] = useLocation();
-  const { setActiveProfileId } = useScheduleProfile();
-
-  useEffect(() => {
-    const profileId = Number.parseInt(params?.profileId ?? "", 10);
-
-    if (!Number.isFinite(profileId) || profileId <= 0) {
-      setLocation(STAFF_HOME_PATH);
-      return;
-    }
-
-    const sectionMap: Record<string, string> = {
-      calendar: "/calendar",
-      admin: "/admin",
-      settings: "/settings",
-    };
-
-    setActiveProfileId(profileId);
-    enableSupportMode(profileId);
-    setLocation(supportPath(sectionMap[params?.section ?? ""] ?? ""));
-  }, [params?.profileId, params?.section, setActiveProfileId, setLocation]);
-
-  return null;
-}
-
 function Router() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, loading } = useAuth();
@@ -184,7 +157,7 @@ function Router() {
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
-      if (user?.role === "staff") {
+      if (isMasterRole(user?.role)) {
         setLocation(STAFF_HOME_PATH);
       } else {
         setLocation(appPath());
@@ -254,12 +227,16 @@ function Router() {
       return null;
     }
 
-    if (isSupportRoute(location)) {
-      return <SupportShell key="support-shell" />;
+    if (isSupportRoute(location) && !canAccessClientContext) {
+      if (supportModeActive && !activeProfileId) {
+        disableSupportMode();
+      }
+      setLocation(STAFF_HOME_PATH);
+      return null;
     }
 
     if (!isStaffRoute(location) && !isSupportRoute(location)) {
-      if (supportModeActive && !effectiveSupportProfileId) {
+      if (supportModeActive && !activeProfileId) {
         disableSupportMode();
       }
       setLocation(STAFF_HOME_PATH);
@@ -272,16 +249,16 @@ function Router() {
     return <Home />;
   }
 
+  if (location === "/login") {
+    return <LoginPage />;
+  }
+
   if (location === appPath("/onboarding")) {
     return <Onboarding />;
   }
 
   if (location === "/invite-accept") {
     return <InviteAccept />;
-  }
-
-  if (isAppRoute(location) && !loading && !isAuthenticated) {
-    return <LoginPage />;
   }
 
   if (isAppRoute(location)) {

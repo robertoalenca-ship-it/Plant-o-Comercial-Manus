@@ -150,7 +150,10 @@ export default function Home() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
 
-  const appEntryUrl = user?.role === "staff" ? STAFF_HOME_PATH : appPath();
+  const appEntryUrl =
+    user?.role === "staff" || user?.role === "admin"
+      ? STAFF_HOME_PATH
+      : appPath();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {

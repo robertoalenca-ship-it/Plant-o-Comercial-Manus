@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { createPresenceLog, getPresenceLogsByDoctor } from "./presence_db";
+import { calculateEarningsFormMonth } from "./finance_db";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
