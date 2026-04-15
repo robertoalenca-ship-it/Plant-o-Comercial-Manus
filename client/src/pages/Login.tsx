@@ -47,7 +47,13 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     setIsRedirectingToGoogle(true);
-    window.location.assign(getLoginUrl({ type: "signIn" }));
+    const url = getLoginUrl({ type: "signIn" });
+    if (url) {
+      window.location.assign(url);
+    } else {
+      setIsRedirectingToGoogle(false);
+      setError("Login com Google não configurado.");
+    }
   };
 
   return (

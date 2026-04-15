@@ -28,8 +28,24 @@ child.on("error", (error) => {
 
 child.on("exit", (code, signal) => {
   if (signal) {
-    process.kill(process.pid, signal);
+    process.exit(1);
     return;
   }
   process.exit(code ?? 0);
 });
+
+const cleanup = () => {
+  if (!child.killed) {
+    child.kill();
+  }
+};
+
+process.on("SIGINT", () => {
+  cleanup();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  cleanup();
+  process.exit(0);
+});
+process.on("exit", cleanup);

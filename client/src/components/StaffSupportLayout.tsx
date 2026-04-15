@@ -42,6 +42,9 @@ import {
   Shield,
   Undo2,
   Users,
+  Repeat,
+  MapPin,
+  Wallet,
 } from "lucide-react";
 import {
   CSSProperties,

@@ -22,6 +22,9 @@ import {
   TrendingUp,
   Users,
   Zap,
+  Repeat,
+  MapPin,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

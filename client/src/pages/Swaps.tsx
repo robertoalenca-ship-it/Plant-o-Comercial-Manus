@@ -29,18 +29,18 @@ export default function Swaps() {
 
   const approveMutation = trpc.swapRequests.approve.useMutation({
     onSuccess: () => {
-      toast({ title: "Troca aprovada", description: "A escala foi atualizada com sucesso." });
+      toast.success("Troca aprovada", { description: "A escala foi atualizada com sucesso." });
       utils.swapRequests.listForSchedule.invalidate();
       utils.schedules.getByMonth.invalidate();
     },
     onError: (err) => {
-      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
+      toast.error("Erro ao aprovar", { description: err.message });
     }
   });
 
   const rejectMutation = trpc.swapRequests.reject.useMutation({
     onSuccess: () => {
-      toast({ title: "Troca rejeitada", description: "A solicitação foi encerrada." });
+      toast.success("Troca rejeitada", { description: "A solicitação foi encerrada." });
       utils.swapRequests.listForSchedule.invalidate();
     }
   });

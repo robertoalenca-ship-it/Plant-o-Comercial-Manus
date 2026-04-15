@@ -21,7 +21,7 @@ export default function Attendance() {
   const getLocation = () => {
     setIsLocating(true);
     if (!navigator.geolocation) {
-      toast({ title: "Erro", description: "Geolocalização não suportada no seu navegador.", variant: "destructive" });
+      toast.error("Erro", { description: "Geolocalização não suportada no seu navegador." });
       setIsLocating(false);
       return;
     }
@@ -32,7 +32,7 @@ export default function Attendance() {
         setIsLocating(false);
       },
       (err) => {
-        toast({ title: "Erro de Localização", description: "Ative o GPS para bater o ponto.", variant: "destructive" });
+        toast.error("Erro de Localização", { description: "Ative o GPS para bater o ponto." });
         setIsLocating(false);
       }
     );
@@ -40,10 +40,8 @@ export default function Attendance() {
 
   // Mock de registro (backend ainda precisa dos endpoints)
   const handleCheckIn = () => {
-    toast({ 
-      title: "Ponto Batido!", 
-      description: `Entrada registrada em ${format(new Date(), "HH:mm")} via GPS.`,
-      variant: "default"
+    toast.success("Ponto Batido!", { 
+      description: `Entrada registrada em ${format(new Date(), "HH:mm")} via GPS.`
     });
   };
 
@@ -73,7 +71,7 @@ export default function Attendance() {
               <CheckCircle2 className="mr-2 h-5 w-5" />
               Bater Entrada
             </Button>
-            <Button variant="outline" className="w-full h-12" onClick={() => toast({ title: "Ponto de Saída", description: "Saída registrada." })}>
+            <Button variant="outline" className="w-full h-12" onClick={() => toast("Ponto de Saída", { description: "Saída registrada." })}>
               Registrar Saída
             </Button>
           </div>
