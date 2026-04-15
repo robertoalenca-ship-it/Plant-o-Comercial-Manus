@@ -129,6 +129,9 @@ function SupportShell() {
         <Route path={supportPath()} component={Dashboard} />
         <Route path={supportPath("/calendar")} component={Calendar} />
         <Route path={supportPath("/admin")} component={AdminPanel} />
+        <Route path={supportPath("/swaps")} component={Swaps} />
+        <Route path={supportPath("/attendance")} component={Attendance} />
+        <Route path={supportPath("/finance")} component={Finance} />
         <Route path={supportPath("/settings")} component={Settings} />
         <Route component={NotFound} />
       </Switch>

@@ -324,7 +324,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Ações Rápidas</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <Button
                   variant="outline"
                   className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
@@ -336,18 +336,34 @@ export default function Dashboard() {
                 <Button
                   variant="outline"
                   className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
-                  onClick={() => setLocation(appPath("/doctors"))}
+                  onClick={() => setLocation(appPath("/swaps"))}
                 >
-                  <Users className="h-5 w-5 text-teal-500" />
-                  <span className="text-xs font-bold tracking-tight">{professionalPlural}</span>
+                  <Repeat className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Mural de Trocas</span>
                 </Button>
                 <Button
                   variant="outline"
                   className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
-                  onClick={() => setLocation(appPath("/weekly-rules"))}
+                  onClick={() => setLocation(appPath("/attendance"))}
                 >
-                  <Clock className="h-5 w-5 text-teal-500" />
-                  <span className="text-xs font-bold tracking-tight">Restrições</span>
+                  <MapPin className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Bater Ponto</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/finance"))}
+                >
+                  <Wallet className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">Financeiro</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col gap-2 py-4 hover:border-teal-500/50 hover:bg-teal-50/10 transition-all border-slate-200/60 dark:border-slate-800/60"
+                  onClick={() => setLocation(appPath("/doctors"))}
+                >
+                  <Users className="h-5 w-5 text-teal-500" />
+                  <span className="text-xs font-bold tracking-tight">{professionalPlural}</span>
                 </Button>
                 <Button
                   variant="outline"

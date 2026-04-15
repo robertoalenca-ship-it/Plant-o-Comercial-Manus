@@ -73,6 +73,21 @@ const staffSupportMenuItems = [
     path: supportPath("/admin"),
   },
   {
+    icon: Repeat,
+    label: "Mural de Trocas",
+    path: supportPath("/swaps"),
+  },
+  {
+    icon: MapPin,
+    label: "Ponto Eletrônico",
+    path: supportPath("/attendance"),
+  },
+  {
+    icon: Wallet,
+    label: "Financeiro",
+    path: supportPath("/finance"),
+  },
+  {
     icon: Settings,
     label: "Configuracoes da Unidade",
     path: supportPath("/settings"),
