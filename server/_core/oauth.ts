@@ -61,6 +61,7 @@ async function exchangeGoogleCodeForTokens(req: Request, code: string) {
   const { data } = await axios.post<{
     access_token: string;
   }>(GOOGLE_TOKEN_URL, params.toString(), {
+    family: 4,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
 
@@ -69,6 +70,7 @@ async function exchangeGoogleCodeForTokens(req: Request, code: string) {
 
 async function getGoogleUserInfo(accessToken: string) {
   const { data } = await axios.get<GoogleUserInfo>(GOOGLE_USERINFO_URL, {
+    family: 4,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   return data;
