@@ -48,18 +48,15 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Robust path resolution:
-  // In production (bundled), import.meta.dirname is <project>/dist/
-  // In development, import.meta.dirname is <project>/server/_core/
-  const distPath = fs.existsSync(path.resolve(import.meta.dirname, "public"))
-    ? path.resolve(import.meta.dirname, "public") // Bundled mode (dist/public)
-    : path.resolve(import.meta.dirname, "../..", "dist", "public"); // Dev mode target
+  // Use process.cwd() which is always /app in Docker.
+  // This is the most reliable way to find the dist/public folder.
+  const distPath = path.resolve(process.cwd(), "dist", "public");
 
   console.log(`[server] Serving static assets from: ${distPath}`);
 
   if (!fs.existsSync(distPath)) {
     console.error(
-      `[server] ERROR: Could not find the build directory: ${distPath}. Build failed or paths are mismatched.`
+      `[server] ERROR: Could not find the build directory: ${distPath}.`
     );
   }
 
