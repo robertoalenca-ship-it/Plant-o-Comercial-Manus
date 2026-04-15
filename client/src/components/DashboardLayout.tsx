@@ -19,7 +19,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl, getSalesContactUrl } from "@/const";
+import { getLoginUrl, getSalesContactUrl, isOAuthConfigured } from "@/const";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
 import { useIsMobile } from "@/hooks/useMobile";
 import { appPath, STAFF_HOME_PATH, isStaffRoute } from "@/lib/appRoutes";
@@ -144,6 +144,7 @@ export default function DashboardLayout({
   const [name, setName] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const oauthEnabled = isOAuthConfigured();
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
@@ -381,25 +382,27 @@ export default function DashboardLayout({
               </button>
             </div>
 
-            <div className="mt-8 space-y-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-200" />
+            {oauthEnabled ? (
+              <div className="mt-8 space-y-6">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase tracking-widest">
+                    <span className="bg-background px-4 text-muted-foreground font-medium">Ou conecte-se com</span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase tracking-widest">
-                  <span className="bg-background px-4 text-muted-foreground font-medium">Ou conecte-se com</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <Button variant="outline" className="h-12 border-slate-200 hover:bg-slate-50 transition-colors group" asChild>
-                  <a href={getLoginUrl({ type: "signUp" }) ?? getSalesContactUrl() ?? "#"}>
-                    <svg className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" aria-hidden="true" focusable="false" role="img" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
-                    Google
-                  </a>
-                </Button>
+                <div className="grid grid-cols-1 gap-4">
+                  <Button variant="outline" className="h-12 border-slate-200 hover:bg-slate-50 transition-colors group" asChild>
+                    <a href={getLoginUrl({ type: "signUp" }) ?? getSalesContactUrl() ?? "#"}>
+                      <svg className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" aria-hidden="true" focusable="false" role="img" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
+                      Google
+                    </a>
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         </div>
       </div>
