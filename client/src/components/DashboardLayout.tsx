@@ -421,6 +421,13 @@ export default function DashboardLayout({
   const shouldShowSkeleton = !activeProfile;
 
   if (shouldShowSkeleton) {
+    // If there are no profiles at all, redirect to onboarding (outside DashboardLayout)
+    if (profilesQuery.isSuccess && profiles.length === 0 && !isMasterRole(user?.role)) {
+      if (typeof window !== "undefined") {
+        window.location.href = appPath("/onboarding");
+      }
+      return null;
+    }
     return <DashboardLayoutSkeleton />;
   }
 
