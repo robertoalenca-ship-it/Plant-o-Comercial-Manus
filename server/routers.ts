@@ -591,6 +591,43 @@ export const appRouter = router({
   admin: adminRouter,
   saasAdmin: saasAdminRouter,
   payments: paymentsRouter,
+  presence: router({
+    checkIn: profileProcedure
+      .input(z.object({
+        scheduleEntryId: z.number().optional(),
+        latitude: z.string().optional(),
+        longitude: z.string().optional(),
+        locationName: z.string().optional(),
+        photoUrl: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return await createPresenceLog({
+          profileId: ctx.scheduleProfileId,
+          doctorId: ctx.user.id,
+          ...input,
+          checkInTime: new Date(),
+          status: "pending",
+        });
+      }),
+    list: profileProcedure
+      .input(z.object({ doctorId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        return await getPresenceLogsByDoctor(input.doctorId, ctx.scheduleProfileId);
+      }),
+  }),
+  finance: router({
+    getMonthlyReport: profileProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input, ctx }) => {
+        if (!ctx.user.isPaid) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Módulo financeiro é uma funcionalidade premium.",
+          });
+        }
+        return await calculateEarningsFormMonth(ctx.scheduleProfileId, input.year, input.month);
+      }),
+  }),
   swapRequests: swapRequestsRouter,
   system: systemRouter,
   auth: router({
