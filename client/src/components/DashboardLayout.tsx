@@ -238,8 +238,43 @@ export default function DashboardLayout({
   }, [activeProfileId, profiles, profilesQuery.isLoading, profilesQuery.isSuccess, setActiveProfileId, user, location, setLocation]);
 
 
-  if (loading || (user && profilesQuery.isLoading)) {
+  useEffect(() => {
+    console.log("[DashboardLayout] State Update:", {
+      isLoading: loading,
+      hasUser: !!user,
+      profilesLoading: profilesQuery.isLoading,
+      profilesCount: profiles.length,
+      activeProfileId
+    });
+  }, [loading, user, profilesQuery.isLoading, profiles.length, activeProfileId]);
+
+  if (loading) {
     return <DashboardLayoutSkeleton />;
+  }
+
+  // Handle case where auth query finished but profiles failed
+  if (user && profilesQuery.isError) {
+    console.error("[DashboardLayout] Profiles Error:", profilesQuery.error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">
+        <h1 className="text-xl font-bold text-slate-800 mb-2">Ops! Algo deu errado</h1>
+        <p className="text-slate-600 mb-6">Não conseguimos carregar suas unidades. Por favor, tente recarregar.</p>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Recarregar Página
+          </button>
+          <button 
+            onClick={() => logoutMutation.mutate()}
+            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+          >
+            Sair e entrar novamente
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -418,11 +453,12 @@ export default function DashboardLayout({
   }
 
   // Show skeleton if context is loading (no active profile in app mode)
-  const shouldShowSkeleton = !activeProfile;
+  // Show skeleton if profiles are still loading (only used in app mode when authenticated)
+  const shouldShowSkeleton = profilesQuery.isLoading || !activeProfile;
 
   if (shouldShowSkeleton) {
-    // If there are no profiles at all, redirect to onboarding (outside DashboardLayout)
     if (profilesQuery.isSuccess && profiles.length === 0 && !isMasterRole(user?.role)) {
+      console.log("[DashboardLayout] No profiles found, redirecting to onboarding.");
       if (typeof window !== "undefined") {
         window.location.href = appPath("/onboarding");
       }
