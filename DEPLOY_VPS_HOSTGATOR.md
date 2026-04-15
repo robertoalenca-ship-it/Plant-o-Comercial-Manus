@@ -16,7 +16,7 @@ Arquivos principais:
 - sistema: `app.plantaomedico.store`
 - app Node + frontend: Docker Compose na VPS
 - banco: MySQL em container interno
-- reverse proxy: Apache/cPanel apontando para `127.0.0.1:3001`
+- reverse proxy: Apache/cPanel apontando para `127.0.0.1:3005`
 - SSL: AutoSSL do cPanel
 - deploy automatico: `cron` local na VPS
 
@@ -53,7 +53,7 @@ cp .env.docker.vps.example .env.docker
 Ajuste pelo menos:
 
 ```env
-APP_PORT=3001
+APP_PORT=3005
 MYSQL_DATABASE=escala_medica
 MYSQL_USER=escala_user
 MYSQL_PASSWORD=troque-esta-senha
@@ -77,7 +77,7 @@ cd /var/www/escala-inteligente
 Validacao:
 
 ```bash
-curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3005/healthz
 docker compose --env-file .env.docker ps
 ```
 
@@ -86,7 +86,7 @@ docker compose --env-file .env.docker ps
 No seu servidor atual:
 
 - `app.plantaomedico.store` ja aponta para a VPS
-- Apache/cPanel ja esta fazendo proxy para `127.0.0.1:3001`
+- Apache/cPanel ja esta fazendo proxy para `127.0.0.1:3005`
 - o SSL do subdominio ja foi emitido pelo AutoSSL
 
 ## 7. Deploy automatico por cron
@@ -148,7 +148,7 @@ docker compose --env-file .env.docker down
 ## 9. Observacoes importantes
 
 - O MySQL fica dentro do Docker e nao deve ser exposto publicamente.
-- O Apache/cPanel aponta para `127.0.0.1:3001`.
+- O Apache/cPanel aponta para `127.0.0.1:3005`.
 - O container ja executa migrations e bootstrap no start via [docker-start.mjs](</D:/aPLICATIVOS/Plantão comercial/scripts/docker-start.mjs:1>).
 - O workflow do GitHub Actions pode continuar no repositorio, mas na HostGator o cron local e mais confiavel.
 
@@ -157,7 +157,7 @@ docker compose --env-file .env.docker down
 - DNS `app.plantaomedico.store` apontando para a VPS
 - `.env.docker` preenchido com senhas fortes
 - deploy manual funcionando
-- `curl http://127.0.0.1:3001/healthz` respondendo
+- `curl http://127.0.0.1:3005/healthz` respondendo
 - Apache proxy funcionando
 - SSL emitido
 - `APP_DIR=/var/www/escala-inteligente APP_BRANCH=main ./deploy/vps/auto-deploy.sh` funcionando

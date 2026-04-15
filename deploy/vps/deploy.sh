@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 APP_DOMAIN="${APP_DOMAIN:-}"
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-3005}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:${APP_PORT}/healthz}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.docker}"
 
