@@ -132,6 +132,10 @@ export const doctors = mysqlTable("doctors", {
   phone: varchar("phone", { length: 20 }),
   cor: varchar("cor", { length: 16 }).default("#3B82F6").notNull(),
   observacoes: text("observacoes"),
+  // Campos Financeiros (Paridade com concorrentes)
+  shiftRate: int("shiftRate").default(0).notNull(), // Valor base por plantão (em centavos)
+  nightBonus: int("nightBonus").default(0).notNull(), // Bônus noturno fixo ou %
+  weekendBonus: int("weekendBonus").default(0).notNull(), // Bônus FDS
   ativo: boolean("ativo").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -355,3 +359,32 @@ export const nightRotationState = mysqlTable("night_rotation_state", {
   rotationPosition: int("rotationPosition").default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+// ─── Presence Logs (Ponto Eletrônico) ─────────────────────────────────────────
+export const presenceLogs = mysqlTable(
+  "presence_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    profileId: int("profileId").notNull(),
+    doctorId: int("doctorId").notNull(),
+    scheduleEntryId: int("scheduleEntryId"),
+    checkInTime: timestamp("checkInTime"),
+    checkOutTime: timestamp("checkOutTime"),
+    latitude: varchar("latitude", { length: 32 }),
+    longitude: varchar("longitude", { length: 32 }),
+    locationName: varchar("locationName", { length: 255 }),
+    photoUrl: text("photoUrl"),
+    status: mysqlEnum("status", ["valid", "invalid", "pending", "manual_adjustment"]).default("pending").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    profileIdIdx: index("presence_logs_profile_id_idx").on(table.profileId),
+    doctorIdIdx: index("presence_logs_doctor_id_idx").on(table.doctorId),
+    statusIdx: index("presence_logs_status_idx").on(table.status),
+  })
+);
+
+export type PresenceLog = typeof presenceLogs.$inferSelect;
+export type InsertPresenceLog = typeof presenceLogs.$inferInsert;
