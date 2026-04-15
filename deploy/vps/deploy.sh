@@ -22,6 +22,17 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# Carrega variaveis do arquivo .env.docker para o script (ex: APP_PORT)
+set -a
+source "${ENV_FILE}"
+set +a
+
+# Tenta liberar a porta antes de subir os containers
+if command -v fuser >/dev/null 2>&1; then
+  echo "[deploy] Verificando porta ${APP_PORT}..."
+  fuser -k "${APP_PORT}/tcp" || true
+fi
+
 cd "${APP_DIR}"
 
 echo "[deploy] Usando diretorio: ${APP_DIR}"
