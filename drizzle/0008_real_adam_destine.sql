@@ -59,28 +59,8 @@ CREATE TABLE IF NOT EXISTS `swap_requests` (
 --> statement-breakpoint
 DROP PROCEDURE IF EXISTS `__mig_0008_safe_alter`
 --> statement-breakpoint
-CREATE PROCEDURE `__mig_0008_safe_alter`() BEGIN DECLARE CONTINUE HANDLER FOR 1060 BEGIN END; DECLARE CONTINUE HANDLER FOR 1061 BEGIN END; ALTER TABLE `doctors` ADD `crmNumber` varchar(20); ALTER TABLE `doctors` ADD `crmState` varchar(2); ALTER TABLE `doctors` ADD `email` varchar(320); ALTER TABLE `doctors` ADD `phone` varchar(20); ALTER TABLE `doctors` ADD `shiftRate` int DEFAULT 0 NOT NULL; ALTER TABLE `doctors` ADD `nightBonus` int DEFAULT 0 NOT NULL; ALTER TABLE `doctors` ADD `weekendBonus` int DEFAULT 0 NOT NULL; ALTER TABLE `fixed_unavailabilities` ADD `userId` int; END
+CREATE PROCEDURE `__mig_0008_safe_alter`() BEGIN DECLARE CONTINUE HANDLER FOR 1060 BEGIN END; DECLARE CONTINUE HANDLER FOR 1061 BEGIN END; ALTER TABLE `doctors` ADD `crmNumber` varchar(20); ALTER TABLE `doctors` ADD `crmState` varchar(2); ALTER TABLE `doctors` ADD `email` varchar(320); ALTER TABLE `doctors` ADD `phone` varchar(20); ALTER TABLE `doctors` ADD `shiftRate` int DEFAULT 0 NOT NULL; ALTER TABLE `doctors` ADD `nightBonus` int DEFAULT 0 NOT NULL; ALTER TABLE `doctors` ADD `weekendBonus` int DEFAULT 0 NOT NULL; ALTER TABLE `fixed_unavailabilities` ADD `userId` int; CREATE INDEX `notification_dispatches_profile_id_idx` ON `notification_dispatches` (`profileId`); CREATE INDEX `notification_dispatches_status_idx` ON `notification_dispatches` (`status`); CREATE INDEX `notification_dispatches_scheduled_for_idx` ON `notification_dispatches` (`scheduledFor`); CREATE INDEX `presence_logs_profile_id_idx` ON `presence_logs` (`profileId`); CREATE INDEX `presence_logs_doctor_id_idx` ON `presence_logs` (`doctorId`); CREATE INDEX `presence_logs_status_idx` ON `presence_logs` (`status`); CREATE INDEX `swap_requests_profile_id_idx` ON `swap_requests` (`profileId`); CREATE INDEX `swap_requests_schedule_id_idx` ON `swap_requests` (`scheduleId`); CREATE INDEX `swap_requests_entry_id_idx` ON `swap_requests` (`scheduleEntryId`); CREATE INDEX `swap_requests_status_idx` ON `swap_requests` (`status`); END
 --> statement-breakpoint
 CALL `__mig_0008_safe_alter`()
 --> statement-breakpoint
 DROP PROCEDURE IF EXISTS `__mig_0008_safe_alter`
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `notification_dispatches_profile_id_idx` ON `notification_dispatches` (`profileId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `notification_dispatches_status_idx` ON `notification_dispatches` (`status`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `notification_dispatches_scheduled_for_idx` ON `notification_dispatches` (`scheduledFor`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `presence_logs_profile_id_idx` ON `presence_logs` (`profileId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `presence_logs_doctor_id_idx` ON `presence_logs` (`doctorId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `presence_logs_status_idx` ON `presence_logs` (`status`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `swap_requests_profile_id_idx` ON `swap_requests` (`profileId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `swap_requests_schedule_id_idx` ON `swap_requests` (`scheduleId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `swap_requests_entry_id_idx` ON `swap_requests` (`scheduleEntryId`);
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `swap_requests_status_idx` ON `swap_requests` (`status`);
