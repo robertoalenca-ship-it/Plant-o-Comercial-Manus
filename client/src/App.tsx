@@ -39,7 +39,12 @@ import StaffDashboard from "./pages/StaffDashboard";
 import StaffLayout from "./components/StaffLayout";
 import StaffSupportLayout from "./components/StaffSupportLayout";
 import { useAuth } from "./_core/hooks/useAuth";
-import { disableSupportMode, isSupportModeEnabled } from "./lib/supportAccess";
+import {
+  disableSupportMode,
+  enableSupportMode,
+  getSupportModeProfileId,
+  isSupportModeEnabled,
+} from "./lib/supportAccess";
 
 const isMasterRole = (role: string | undefined) =>
   role === "staff" || role === "admin";
@@ -146,8 +151,9 @@ function LegacyRouteRedirect({ to }: { to: string }) {
 function Router() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, loading } = useAuth();
-  const { activeProfileId } = useScheduleProfile();
+  const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const supportModeActive = isSupportModeEnabled();
+  const supportModeProfileId = getSupportModeProfileId();
 
   useEffect(() => {
     if (location === "/" && !loading && isAuthenticated) {
@@ -165,8 +171,52 @@ function Router() {
   }
 
   // REDIRECT GUARDS FOR MASTER (STAFF)
-  if (isMasterRole(user?.role)) {
-    const canAccessClientContext = supportModeActive && Boolean(activeProfileId);
+  if (user?.role === "staff") {
+    const effectiveSupportProfileId = activeProfileId ?? supportModeProfileId;
+    const canAccessClientContext =
+      supportModeActive && Boolean(effectiveSupportProfileId);
+    const legacySupportMatch = location.match(
+      /^\/staff\/support\/(\d+)(?:\/([^/]+))?(?:\/.*)?$/
+    );
+
+    if (
+      supportModeActive &&
+      !activeProfileId &&
+      supportModeProfileId &&
+      isSupportRoute(location)
+    ) {
+      setActiveProfileId(supportModeProfileId);
+      return null;
+    }
+
+    if (legacySupportMatch) {
+      const profileId = Number.parseInt(legacySupportMatch[1] ?? "", 10);
+      const rawSection = legacySupportMatch[2] ?? "";
+      const sectionMap: Record<string, string> = {
+        dashboard: "",
+        home: "",
+        calendar: "/calendar",
+        admin: "/admin",
+        doctors: "/admin",
+        users: "/admin",
+        settings: "/settings",
+      };
+
+      if (Number.isFinite(profileId) && profileId > 0) {
+        const target = supportPath(sectionMap[rawSection] ?? "");
+
+        if (
+          effectiveSupportProfileId !== profileId ||
+          location !== target ||
+          !supportModeActive
+        ) {
+          setActiveProfileId(profileId);
+          enableSupportMode(profileId);
+          setLocation(target);
+          return null;
+        }
+      }
+    }
 
     if (isAppRoute(location)) {
       setLocation(

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useScheduleProfile } from "@/contexts/ScheduleProfileContext";
-import { supportPath } from "@/lib/appRoutes";
+import { STAFF_HOME_PATH, staffPath, supportPath } from "@/lib/appRoutes";
 import { enableSupportMode } from "@/lib/supportAccess";
+import { setStoredScheduleProfileId } from "@/lib/scheduleProfile";
 import { trpc } from "@/lib/trpc";
 import {
   Table,
@@ -52,7 +53,7 @@ import {
 export default function StaffDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [profileSearch, setProfileSearch] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { setActiveProfileId } = useScheduleProfile();
   
   // Queries
@@ -111,19 +112,38 @@ export default function StaffDashboard() {
   };
 
   const handleAccessProfile = (profileId: number) => {
+    setStoredScheduleProfileId(profileId);
     setActiveProfileId(profileId);
     enableSupportMode(profileId);
-    setLocation(supportPath());
+    const supportEntryPath = supportPath(`/${profileId}`);
+
+    if (typeof window !== "undefined") {
+      window.location.assign(supportEntryPath);
+      return;
+    }
+
+    setLocation(supportEntryPath);
   };
 
   const stats = statsQuery.data || { totalUsers: 0, totalProfiles: 0, totalEntries: 0, premiumUsers: 0 };
+  const activeTab = useMemo(() => {
+    if (location === staffPath("/users")) {
+      return "profiles";
+    }
+
+    if (location === staffPath("/analytics")) {
+      return "system";
+    }
+
+    return "users";
+  }, [location]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">SaaS Master Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão global da plataforma e saúde do negócio.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Painel de Gerencia SaaS</h1>
+          <p className="text-muted-foreground mt-1">Gerencie clinicas, usuarios e a operacao administrativa da plataforma.</p>
         </div>
         <div className="flex gap-2">
             <Badge variant="outline" className="px-3 py-1 bg-primary/5 border-primary/20 text-primary font-medium">
@@ -183,13 +203,29 @@ export default function StaffDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="users" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if (value === "profiles") {
+            setLocation(staffPath("/users"));
+            return;
+          }
+
+          if (value === "system") {
+            setLocation(staffPath("/analytics"));
+            return;
+          }
+
+          setLocation(STAFF_HOME_PATH);
+        }}
+        className="w-full"
+      >
         <TabsList className="bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="users" className="rounded-lg gap-2">
             <Users className="h-4 w-4" /> Usuários
           </TabsTrigger>
           <TabsTrigger value="profiles" className="rounded-lg gap-2">
-            <Hospital className="h-4 w-4" /> Unidades (Tenants)
+            <Hospital className="h-4 w-4" /> Clinicas e Unidades
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-lg gap-2">
             <Activity className="h-4 w-4" /> Saúde do Sistema

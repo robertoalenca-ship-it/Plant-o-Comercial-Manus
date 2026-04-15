@@ -29,6 +29,7 @@ import {
 import {
   disableSupportMode,
   enableSupportMode,
+  getSupportModeProfileId,
 } from "@/lib/supportAccess";
 import { trpc } from "@/lib/trpc";
 import {
@@ -142,14 +143,21 @@ function StaffSupportLayoutContent({
   const { user, logout } = useAuth();
   const { activeProfileId, setActiveProfileId } = useScheduleProfile();
   const [location, setLocation] = useLocation();
+  const supportModeProfileId = getSupportModeProfileId();
+  const routeProfileId = useMemo(() => {
+    const match = location.match(/^\/staff\/support\/(\d+)/);
+    const parsed = Number.parseInt(match?.[1] ?? "", 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [location]);
+  const effectiveProfileId = activeProfileId ?? routeProfileId ?? supportModeProfileId;
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const isMobile = useIsMobile();
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const activeProfile = useMemo(
-    () => profiles.find((profile) => profile.id === activeProfileId) ?? null,
-    [activeProfileId, profiles]
+    () => profiles.find((profile) => profile.id === effectiveProfileId) ?? null,
+    [effectiveProfileId, profiles]
   );
 
   const activeMenuItem = useMemo(
@@ -158,14 +166,16 @@ function StaffSupportLayoutContent({
   );
 
   useEffect(() => {
-    if (!activeProfileId || activeProfile) {
+    if (effectiveProfileId && activeProfileId !== effectiveProfileId) {
+      setActiveProfileId(effectiveProfileId);
+      return;
+    }
+
+    if (!effectiveProfileId || activeProfile) {
       return;
     }
 
     if (profiles.length === 0) {
-      setActiveProfileId(null);
-      disableSupportMode();
-      setLocation(STAFF_HOME_PATH);
       return;
     }
 
@@ -175,9 +185,9 @@ function StaffSupportLayoutContent({
   }, [
     activeProfile,
     activeProfileId,
+    effectiveProfileId,
     profiles,
     setActiveProfileId,
-    setLocation,
   ]);
 
   const leaveSupportMode = () => {

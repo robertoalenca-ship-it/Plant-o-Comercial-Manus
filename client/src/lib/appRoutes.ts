@@ -30,7 +30,9 @@ export const isAppRoute = (path: string) =>
   path === APP_HOME_PATH || path.startsWith(`${APP_HOME_PATH}/`);
 
 export const isStaffRoute = (path: string) =>
-  path === STAFF_HOME_PATH || path.startsWith(`${STAFF_HOME_PATH}/`);
+  path === STAFF_HOME_PATH ||
+  (path.startsWith(`${STAFF_HOME_PATH}/`) &&
+    !path.startsWith(`${STAFF_SUPPORT_HOME_PATH}/`));
 
 export const isSupportRoute = (path: string) =>
   path === STAFF_SUPPORT_HOME_PATH || path.startsWith(`${STAFF_SUPPORT_HOME_PATH}/`);
