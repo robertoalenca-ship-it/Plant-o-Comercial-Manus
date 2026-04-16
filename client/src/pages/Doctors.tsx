@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from "react";
+import { type ChangeEvent, useMemo, useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useActiveProfilePresentation } from "@/lib/profilePresentation";
 import {
@@ -132,6 +132,7 @@ export default function Doctors() {
   const [importPreview, setImportPreview] =
     useState<DoctorImportPreview | null>(null);
   const [isReadingImportFile, setIsReadingImportFile] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   const { professionalSingular, professionalPlural } =
     useActiveProfilePresentation();
 
@@ -276,6 +277,10 @@ export default function Doctors() {
     link.download = "modelo-importacao-medicos.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handleChooseImportFile() {
+    importFileInputRef.current?.click();
   }
 
   async function handleImportFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -842,7 +847,113 @@ export default function Doctors() {
         </DialogContent>
       </Dialog>
       
-      {/* Import Modal could also be overhauled similarly if needed, but the focus is on the main list and form */}
+      {/* modern Import Modal */}
+      <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-0 shadow-2xl">
+          <div className="bg-premium-gradient p-8 text-white relative">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-white leading-none flex items-center gap-3">
+                <Upload className="h-6 w-6" />
+                Importar Profissionais
+              </DialogTitle>
+              <p className="text-teal-100/70 text-sm mt-1">Carregue sua base de {professionalPlural.toLowerCase()} via Excel ou CSV</p>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div 
+              className={cn(
+                "rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer group",
+                importFileName 
+                  ? "border-teal-500 bg-teal-50/30 dark:bg-teal-900/10" 
+                  : "border-slate-200 dark:border-slate-800 hover:border-teal-400 hover:bg-slate-50 dark:hover:bg-slate-900/40"
+              )}
+              onClick={handleChooseImportFile}
+            >
+              <input
+                type="file"
+                ref={importFileInputRef}
+                className="hidden"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImportFileChange}
+                disabled={isReadingImportFile}
+              />
+              <div className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors",
+                importFileName ? "bg-teal-500 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-teal-100 group-hover:text-teal-600"
+              )}>
+                {isReadingImportFile ? (
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent animate-spin rounded-full" />
+                ) : (
+                  <Upload className="h-6 w-6" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">
+                  {importFileName || "Clique para selecionar arquivo"}
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                  CSV, XLSX ou XLS suportados
+                </p>
+              </div>
+            </div>
+
+            {importPreview && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Válidos</p>
+                    <p className="text-2xl font-black text-teal-600 dark:text-teal-400 tabular-nums">{importPreview.rows.length}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Erros</p>
+                    <p className={cn("text-2xl font-black tabular-nums", importPreview.errors.length > 0 ? "text-rose-500" : "text-slate-300")}>
+                      {importPreview.errors.length}
+                    </p>
+                  </div>
+                </div>
+
+                {importPreview.errors.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-xl bg-rose-50/50 dark:bg-rose-950/20 p-3 border border-rose-100 dark:border-rose-900/30 custom-scrollbar">
+                    {importPreview.errors.map((err, idx) => (
+                      <p key={idx} className="text-[10px] text-rose-700 dark:text-rose-400 font-medium">
+                        Linha {err.rowNumber}: {err.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleDownloadTemplate} 
+                className="h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-slate-800"
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Baixar Modelo de Exemplo
+              </Button>
+              <div className="flex gap-3">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setImportModalOpen(false)} 
+                  className="flex-1 h-12 text-sm font-bold"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleImportSubmit}
+                  disabled={!importPreview || importPreview.rows.length === 0 || importMutation.isPending}
+                  className="flex-[2] h-12 text-sm font-bold bg-primary shadow-lg shadow-primary/20"
+                >
+                  {importMutation.isPending ? "Importando..." : "Confirmar Importação"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
