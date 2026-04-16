@@ -116,6 +116,7 @@ async function getLocalCredentialUser(
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
+  let user: User | null = null;
   console.log(`[Context] Starting for ${opts.req.method} ${opts.req.url}`);
   const rawProfileHeader = opts.req.headers[SCHEDULE_PROFILE_HEADER];
   const scheduleProfileIdValue = Array.isArray(rawProfileHeader)
