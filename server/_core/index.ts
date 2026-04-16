@@ -34,6 +34,16 @@ async function startServer() {
   const server = createServer(app);
   app.set("trust proxy", 1);
 
+  // Request logging middleware
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} (${duration}ms)`);
+    });
+    next();
+  });
+
   // Stripe webhook needs raw body
   app.post(
     "/api/webhooks/stripe",

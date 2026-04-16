@@ -152,6 +152,7 @@ export default function DashboardLayout({
   const [name, setName] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTimeout, setIsTimeout] = useState(false);
   const oauthEnabled = isOAuthConfigured();
 
   const loginMutation = trpc.auth.login.useMutation({
@@ -239,17 +240,45 @@ export default function DashboardLayout({
 
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (loading) {
+      timeoutId = setTimeout(() => {
+        setIsTimeout(true);
+        console.warn("[DashboardLayout] Authentication taking too long. Showing timeout message.");
+      }, 12000);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [loading]);
+
+  useEffect(() => {
     console.log("[DashboardLayout] State Update:", {
       isLoading: loading,
       hasUser: !!user,
       profilesLoading: profilesQuery.isLoading,
       profilesCount: profiles.length,
-      activeProfileId
+      activeProfileId,
+      isTimeout
     });
-  }, [loading, user, profilesQuery.isLoading, profiles.length, activeProfileId]);
+  }, [loading, user, profilesQuery.isLoading, profiles.length, activeProfileId, isTimeout]);
 
-  if (loading) {
+  if (loading && !isTimeout) {
     return <DashboardLayoutSkeleton />;
+  }
+
+  // Handle Timeout
+  if (isTimeout && !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">
+        <h1 className="text-xl font-bold text-slate-800 mb-2">Conexão Lenta</h1>
+        <p className="text-slate-600 mb-6">O servidor está demorando mais do que o esperado para responder.</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
   }
 
   // Handle case where auth query finished but profiles failed

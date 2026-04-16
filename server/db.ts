@@ -316,7 +316,7 @@ export async function getDb() {
   _dbInitAttempted = true;
 
   try {
-    const candidate = drizzle(process.env.DATABASE_URL);
+    const candidate = drizzle(process.env.DATABASE_URL, { logger: true });
     await candidate.execute(sql`select 1`);
     _db = candidate;
   } catch (error) {

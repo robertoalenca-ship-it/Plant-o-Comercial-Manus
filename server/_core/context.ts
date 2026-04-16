@@ -116,7 +116,7 @@ async function getLocalCredentialUser(
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
-  let user: User | null = null;
+  console.log(`[Context] Starting for ${opts.req.method} ${opts.req.url}`);
   const rawProfileHeader = opts.req.headers[SCHEDULE_PROFILE_HEADER];
   const scheduleProfileIdValue = Array.isArray(rawProfileHeader)
     ? rawProfileHeader[0]
@@ -130,9 +130,11 @@ export async function createContext(
       ? parsedScheduleProfileId
       : null;
 
+  console.log(`[Context] Checking local credentials...`);
   const localCredentialUser = await getLocalCredentialUser(opts.req);
 
   if (localCredentialUser) {
+    console.log(`[Context] Local user found: ${localCredentialUser.email}`);
     return {
       req: opts.req,
       res: opts.res,
@@ -142,7 +144,9 @@ export async function createContext(
     };
   }
 
+  console.log(`[Context] No local user. Checking OAuth...`);
   if (!ENV.oAuthServerUrl && !ENV.isProduction) {
+    console.log(`[Context] Development mode, no OAuth server URL. Returning null user.`);
     return {
       req: opts.req,
       res: opts.res,
@@ -153,12 +157,16 @@ export async function createContext(
   }
 
   try {
+    console.log(`[Context] Authenticating via SDK...`);
     user = await sdk.authenticateRequest(opts.req);
+    console.log(`[Context] Auth success: ${user?.email}`);
   } catch (error) {
+    console.log(`[Context] Auth skipped/failed: ${error instanceof Error ? error.message : String(error)}`);
     // Authentication is optional for public procedures.
     user = null;
   }
 
+  console.log(`[Context] Done.`);
   return {
     req: opts.req,
     res: opts.res,
