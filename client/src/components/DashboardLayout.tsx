@@ -213,18 +213,27 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (profilesQuery.isLoading) return;
+    
+    // Redirect logic for users with NO profiles
     if (user && profilesQuery.isSuccess && profiles.length === 0) {
       if (isMasterRole(user.role)) {
-        if (location.startsWith(appPath())) setLocation(STAFF_HOME_PATH);
+        if (location.startsWith(appPath())) {
+          console.log("[DashboardLayout] Staff user with no profiles, redirecting to staff home.");
+          setLocation(STAFF_HOME_PATH);
+        }
         return;
       }
+      
       const onboardingPath = appPath("/onboarding");
       if (location !== onboardingPath) {
+        console.log("[DashboardLayout] Normal user with no profiles, redirecting to onboarding.");
         setLocation(onboardingPath);
       }
       return;
     }
+
     if (activeProfileId || isMasterRole(user?.role)) return;
+
     const defaultProfile =
       profiles.find((profile) =>
         [
@@ -234,6 +243,7 @@ export default function DashboardLayout({
           "Equipe Padrao",
         ].includes(profile.name)
       ) ?? profiles[0];
+
     if (!defaultProfile) return;
     setActiveProfileId(defaultProfile.id);
   }, [activeProfileId, profiles, profilesQuery.isLoading, profilesQuery.isSuccess, setActiveProfileId, user, location, setLocation]);
@@ -481,13 +491,13 @@ export default function DashboardLayout({
     );
   }
 
-  // Show skeleton if context is loading (no active profile in app mode)
-  // Show skeleton if profiles are still loading (only used in app mode when authenticated)
-  const shouldShowSkeleton = profilesQuery.isLoading || !activeProfile;
+  // Show skeleton if context is loading
+  // Master roles (staff/admin) can proceed without an active profile (they access global data)
+  const shouldShowSkeleton = profilesQuery.isLoading || (!activeProfile && !isMasterRole(user?.role));
 
   if (shouldShowSkeleton) {
     if (profilesQuery.isSuccess && profiles.length === 0 && !isMasterRole(user?.role)) {
-      console.log("[DashboardLayout] No profiles found, redirecting to onboarding.");
+      console.log("[DashboardLayout] No profiles found in render check, redirecting to onboarding.");
       if (typeof window !== "undefined") {
         window.location.href = appPath("/onboarding");
       }
