@@ -764,20 +764,23 @@ export async function createManagedLocalUser(input: {
   }
 
   return db.transaction(async (tx) => {
-    const userInsert = await tx.insert(users).values({
-      openId: input.openId,
-      name: input.name,
-      email: normalizedEmail,
-      loginMethod: "password",
-      role: input.role,
-      isEmailVerified: input.isEmailVerified ?? false,
-      lastSignedIn: new Date(),
-      maxProfiles: 1,
-      isPaid: false,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      subscriptionStatus: null,
-    });
+    const userInsert = await tx
+      .insert(users)
+      .values({
+        openId: input.openId,
+        name: input.name,
+        email: normalizedEmail,
+        loginMethod: "password",
+        role: input.role,
+        isEmailVerified: input.isEmailVerified ?? false,
+        lastSignedIn: new Date(),
+        maxProfiles: 1,
+        isPaid: false,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        subscriptionStatus: null,
+      })
+      .onDuplicateKeyUpdate({ set: { lastSignedIn: new Date() } });
 
     let userId = Number((userInsert as { insertId?: number }).insertId ?? 0);
     if (!userId) {
